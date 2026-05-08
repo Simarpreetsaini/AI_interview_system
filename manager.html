@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Manager Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-3d.js"></script>
+    <style>
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); backdrop-filter: blur(10px); overflow-y: auto; }
+        .modal-content { background-color: #0b0e14; margin: 2rem auto; padding: 2.5rem; border: 1px solid rgba(0, 229, 255, 0.3); width: 90%; max-width: 1100px; border-radius: 24px; color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
+        .close { position: absolute; right: 2rem; top: 1.5rem; color: #94a3b8; font-size: 28px; font-weight: bold; cursor: pointer; transition: color 0.3s; z-index: 10; }
+        .close:hover { color: #fff; }
+        
+        .action-btn { padding: 0.6rem 1.2rem; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; margin-right: 0.5rem; transition: all 0.3s; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-approve { background-color: #22c55e; color: #000; }
+        .btn-reject { background-color: #ef4444; color: #fff; }
+        .btn-grant { background-color: #3b82f6; color: #fff; }
+        .btn-revoke { background-color: #f59e0b; color: #000; }
+        
+        .action-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(0, 229, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.01);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+
+        .manager-layout {
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(0, 229, 255, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(0, 229, 255, 0.03) 0%, transparent 40%);
+        }
+
+        /* Enhanced Table Styles */
+        .record-tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .record-tr:hover {
+            background: rgba(255, 255, 255, 0.02) !important;
+            transform: scale(1.002);
+            box-shadow: inset 4px 0 0 var(--primary-cyan);
+        }
+        .status-pill {
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid transparent;
+        }
+        .pill-approved { background: rgba(34, 197, 94, 0.1); color: #22c55e; border-color: rgba(34, 197, 94, 0.2); }
+        .pill-rejected { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
+        .pill-pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border-color: rgba(245, 158, 11, 0.2); }
+        
+        .integrity-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .integrity-secure { background: rgba(34, 197, 94, 0.05); color: #22c55e; }
+        .integrity-compromised { background: rgba(239, 68, 68, 0.05); color: #ef4444; }
+
+        .dossier-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .dossier-btn:hover {
+            background: var(--primary-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 229, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="manager-layout">
+    <div class="topbar">
+        <h1 class="outfit" style="margin-bottom: 0; font-size: 1.5rem;">Admin Insights</h1>
+        <div id="live-clock" style="color: var(--primary-cyan); font-weight: 800; font-size: 0.9rem; letter-spacing: 1px;"></div>
+        <button class="btn-outline btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+    <div class="container" style="max-width: 1200px; margin: 0 auto;">
+        
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="box" style="text-align: center; border-top: 4px solid var(--primary-cyan);">
+                <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.5rem;">Total Candidates</div>
+                <div id="stat-total" style="font-size: 2rem; font-weight: 800;">0</div>
+            </div>
+            <div class="box" style="text-align: center; border-top: 4px solid #22c55e;">
+                <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.5rem;">Average Score</div>
+                <div id="stat-avg" style="font-size: 2rem; font-weight: 800;">0%</div>
+            </div>
+            <div class="box" style="text-align: center; border-top: 4px solid #ef4444;">
+                <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.5rem;">Integrity Alerts</div>
+                <div id="stat-alerts" style="font-size: 2rem; font-weight: 800; color: #ef4444;">0</div>
+            </div>
+            <div class="box" style="text-align: center; border-top: 4px solid #f59e0b;">
+                <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.5rem;">Shortlisted</div>
+                <div id="stat-approved" style="font-size: 2rem; font-weight: 800; color: #f59e0b;">0</div>
+            </div>
+        </div>
+
+        <div class="box" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div class="subtitle">Candidate Records</div>
+                    <select id="filter-exp" onchange="filterTable()" style="padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                        <option value="">All Experience</option>
+                        <option value="fresher">Fresher</option>
+                        <option value="junior">Junior</option>
+                        <option value="senior">Senior</option>
+                    </select>
+                    <select id="filter-integrity" onchange="filterTable()" style="padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                        <option value="">All Integrity</option>
+                        <option value="Secure">Secure</option>
+                        <option value="Compromised">Compromised</option>
+                    </select>
+                    <input type="text" id="table-search" placeholder="Search..." onkeyup="filterTable()" style="width: 200px; padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                    <button onclick="exportToCSV()" class="btn-outline">Export CSV</button>
+            </div>
+            <table style="width: 100%; text-align: left;">
+                <thead style="background: rgba(255,255,255,0.02); text-transform: uppercase; font-size: 0.6rem; letter-spacing: 1px; color: var(--text-muted);">
+                    <tr>
+                        <th style="padding: 15px; text-align: center; width: 60px;">Rank</th>
+                        <th style="padding: 15px; width: 140px;">Schedule</th>
+                        <th style="padding: 15px; width: 180px;">Candidate</th>
+                        <th style="padding: 15px;">Contact & Outreach</th>
+                        <th style="padding: 15px; text-align: center; width: 100px;">Resume</th>
+                        <th style="padding: 15px; width: 130px;">Integrity</th>
+                        <th style="padding: 15px; width: 100px;">Score</th>
+                        <th style="padding: 15px; text-align: center; width: 130px;">Status</th>
+                        <th style="padding: 15px; text-align: center; width: 120px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="records-table">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="grid-2" style="gap: 2.5rem; margin-bottom: 4rem;">
+            <div class="box" style="padding: 2.5rem; border-radius: 24px;">
+                <div class="subtitle">Skill Distribution</div>
+                <div id="skills-chart" style="height: 450px;"></div>
+            </div>
+            <div class="box" style="padding: 2.5rem; border-radius: 24px;">
+                <div class="subtitle">Performance Matrix (3D)</div>
+                <div id="stats-chart" style="height: 450px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body">
+                <!-- Content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            const user = localStorage.getItem('username');
+            const token = localStorage.getItem('access_token');
+            if (user !== 'admin' || !token) {
+                window.location.href = '/index.html';
+            } else {
+                loadRecords();
+            }
+        };
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleString('en-US', { 
+                weekday: 'short', month: 'short', day: 'numeric', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/index.html';
+        }
+
+        async function loadRecords() {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch('/api/get_all_records', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            const table = document.getElementById('records-table');
+            table.innerHTML = '';
+            
+            let approvedCount = 0;
+            let totalScore = 0;
+            let integrityAlerts = 0;
+            const skillsFreq = {};
+
+            data.forEach((record, index) => {
+                totalScore += record.score;
+                if(record.status === 'Approved') approvedCount++;
+                if(record.integrity !== 'Secure') integrityAlerts++;
+
+                if(record.skills) {
+                    const skillList = record.skills.split(',');
+                    skillList.forEach(s => {
+                        const trimmed = s.trim();
+                        if(trimmed) skillsFreq[trimmed] = (skillsFreq[trimmed] || 0) + 1;
+                    });
+                }
+                
+                const tr = document.createElement('tr');
+                tr.className = 'record-tr';
+                tr.setAttribute('data-experience', (record.experience || '').toLowerCase());
+                tr.setAttribute('data-integrity', record.integrity);
+                tr.setAttribute('data-candidate', (record.candidate || '').toLowerCase());
+                tr.setAttribute('data-email', (record.email || '').toLowerCase());
+                
+                const integrityClass = record.integrity === 'Secure' ? 'integrity-secure' : 'integrity-compromised';
+                const integrityIcon = record.integrity === 'Secure' ? '🛡️' : '⚠️';
+                
+                let statusClass = 'pill-pending';
+                if(record.status === 'Approved') statusClass = 'pill-approved';
+                if(record.status === 'Rejected') statusClass = 'pill-rejected';
+
+                tr.innerHTML = `
+                    <td style="padding: 20px 15px; text-align: center; font-weight: 800; color: var(--primary-cyan); font-size: 1rem; opacity: 0.4;">${index + 1}</td>
+                    <td style="padding: 20px 15px;">
+                        <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">${record.date}</div>
+                        <div style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">at ${record.time || '--:--'}</div>
+                    </td>
+                    <td style="padding: 20px 15px;">
+                        <div style="font-weight: 800; color: #fff; font-size: 1rem; letter-spacing: -0.5px;">${record.candidate}</div>
+                        <div style="font-size: 0.7rem; color: var(--primary-cyan); font-weight: 700; text-transform: uppercase; margin-top: 2px;">${record.experience}</div>
+                    </td>
+                    <td style="padding: 20px 15px;">
+                        <div style="display:flex; flex-direction:column; gap: 6px;">
+                            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=${record.email}" target="_blank" style="color: #fff; text-decoration: none; font-size: 0.75rem; display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.03); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onmouseover="this.style.background='rgba(0,229,255,0.1)'; this.style.borderColor='rgba(0,229,255,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.03)'; this.style.borderColor='rgba(255,255,255,0.05)';" title="${record.email}">
+                                <span style="font-size: 0.8rem;">📧</span> <span>${record.email}</span>
+                            </a>
+                            <a href="https://wa.me/${(record.phone || '').replace(/\D/g, '')}" target="_blank" style="color: #22c55e; text-decoration: none; font-size: 0.75rem; display:flex; align-items:center; gap:8px; background: rgba(34,197,94,0.05); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(34,197,94,0.1); transition: all 0.3s; width: max-content;" onmouseover="this.style.background='rgba(34,197,94,0.15)';" onmouseout="this.style.background='rgba(34,197,94,0.05)';" title="Chat on WhatsApp">
+                                <span style="font-size: 0.8rem;">💬</span> <span>${record.phone || 'N/A'}</span>
+                            </a>
+                        </div>
+                    </td>
+                    <td style="padding: 20px 15px; text-align: center;">
+                        ${record.resume_path ? `<a href="/${record.resume_path}" target="_blank" style="color: var(--primary-cyan); text-decoration:none; font-size: 0.8rem; font-weight: 700; border-bottom: 1px dashed rgba(0,229,255,0.3);">📄 VIEW PDF</a>` : '<span style="color:rgba(255,255,255,0.1); font-size: 0.75rem;">NO FILE</span>'}
+                    </td>
+                    <td style="padding: 20px 15px;">
+                        <span class="integrity-pill ${integrityClass}">${integrityIcon} ${record.integrity.toUpperCase()}</span>
+                    </td>
+                    <td style="padding: 20px 15px;">
+                        <div style="font-weight: 800; font-size: 1.1rem; color: ${record.score >= 70 ? '#22c55e' : (record.score >= 40 ? '#f59e0b' : '#ef4444')};">${record.score}%</div>
+                        <div style="width: 50px; height: 3px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 6px; overflow:hidden;">
+                            <div style="width: ${record.score}%; height: 100%; background: ${record.score >= 70 ? '#22c55e' : (record.score >= 40 ? '#f59e0b' : '#ef4444')};"></div>
+                        </div>
+                    </td>
+                    <td style="padding: 20px 15px; text-align: center;">
+                        <span class="status-pill ${statusClass}">${record.status}</span>
+                    </td>
+                    <td style="padding: 20px 15px; text-align: center;">
+                        <button class="dossier-btn" onclick="openDossier(${index})">DOSSIER 👁️</button>
+                    </td>
+                `;
+                table.appendChild(tr);
+            });
+            window.allRecords = data;
+
+            const safeSet = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+            safeSet('stat-total', data.length);
+            safeSet('stat-avg', data.length ? Math.round(totalScore/data.length) + '%' : '0%');
+            safeSet('stat-alerts', integrityAlerts);
+            safeSet('stat-approved', approvedCount);
+            renderCharts(data, skillsFreq);
+        }
+
+        function filterTable() {
+            const exp = document.getElementById('filter-exp').value.toLowerCase();
+            const integrity = document.getElementById('filter-integrity').value;
+            const search = document.getElementById('table-search').value.toLowerCase();
+            
+            const rows = document.querySelectorAll('#records-table tr');
+            rows.forEach(row => {
+                const rowExp = row.getAttribute('data-experience');
+                const rowInt = row.getAttribute('data-integrity');
+                const rowCand = row.getAttribute('data-candidate');
+                const rowEmail = row.getAttribute('data-email');
+                
+                let show = true;
+                if(exp && rowExp !== exp) show = false;
+                if(integrity && rowInt !== integrity) show = false;
+                if(search && !rowCand.includes(search) && !rowEmail.includes(search)) show = false;
+                
+                row.style.display = show ? '' : 'none';
+            });
+        }
+
+        function renderCharts(data, skillsFreq) {
+            // Highcharts Neon Theme
+            Highcharts.setOptions({
+                colors: ['#00E5FF', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
+                chart: {
+                    style: { fontFamily: 'Inter' }
+                }
+            });
+
+            // Skill Distribution Chart (Premium Donut)
+            const skillData = Object.entries(skillsFreq).map(([name, y]) => ({ name, y }));
+            Highcharts.chart('skills-chart', {
+                chart: { type: 'pie', backgroundColor: 'transparent', options3d: { enabled: true, alpha: 45, beta: 0 } },
+                title: { text: null },
+                plotOptions: {
+                    pie: {
+                        innerSize: '65%',
+                        depth: 45,
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        dataLabels: {
+                            enabled: true,
+                            format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                            style: { color: '#94a3b8', textOutline: 'none' }
+                        }
+                    }
+                },
+                series: [{ name: 'Prevalence', data: skillData }],
+                credits: { enabled: false }
+            });
+
+            // Performance Bar (Neon 3D)
+            const scores = data.map(r => ({ y: r.score, color: r.score >= 70 ? '#22c55e' : (r.score >= 40 ? '#00E5FF' : '#ef4444') }));
+            Highcharts.chart('stats-chart', {
+                chart: { type: 'column', backgroundColor: 'transparent', options3d: { enabled: true, alpha: 10, beta: 15, depth: 70, viewDistance: 25 } },
+                title: { text: null },
+                xAxis: { 
+                    categories: data.map(r => r.candidate),
+                    labels: { style: { color: '#94a3b8', fontWeight: '600' } },
+                    lineColor: 'rgba(255,255,255,0.1)'
+                },
+                yAxis: { 
+                    title: { text: 'Performance (%)', style: { color: '#94a3b8' } },
+                    labels: { style: { color: '#94a3b8' } },
+                    gridLineColor: 'rgba(255,255,255,0.05)',
+                    max: 100
+                },
+                legend: { enabled: false },
+                plotOptions: {
+                    column: { depth: 40, borderRadius: 5 }
+                },
+                series: [{ name: 'Score', data: scores }],
+                credits: { enabled: false }
+            });
+        }
+
+        function openDossier(index) {
+            const record = window.allRecords[index];
+            viewDetails(record);
+        }
+
+        function viewDetails(record) {
+            const modal = document.getElementById('detailsModal');
+            const body = document.getElementById('modal-body');
+            
+            body.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 3rem;">
+                    <div>
+                        <div class="subtitle" style="font-size: 0.75rem; margin-bottom: 0.5rem;">Analytical Summary for</div>
+                        <h2 style="font-size: 2.2rem; margin-bottom: 1rem;" class="outfit">${record.candidate}</h2>
+                        
+                        <div style="display:flex; gap: 1rem; margin-bottom: 2rem;">
+                            <span style="padding: 6px 14px; border-radius: 10px; background: rgba(0,229,255,0.1); color: var(--primary-cyan); font-weight: 700; font-size: 0.8rem;">${record.experience.toUpperCase()}</span>
+                            <span style="padding: 6px 14px; border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; font-weight: 700; font-size: 0.8rem;">ID: ${record.username}</span>
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+                            <h4 style="margin-bottom: 1.5rem; color: var(--primary-cyan); display: flex; align-items: center; gap: 10px;">
+                                <span>📹</span> Interview Session Video
+                            </h4>
+                            ${record.video_url ? `
+                                <video controls style="width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                                    <source src="${record.video_url}" type="video/webm">
+                                    Your browser does not support the video tag.
+                                </video>
+                            ` : `
+                                <div style="padding: 2rem; text-align: center; background: rgba(255,255,255,0.01); border-radius: 12px; color: var(--text-muted); font-size: 0.8rem;">
+                                    No video recording available for this candidate.
+                                </div>
+                            `}
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+                            <h4 style="margin-bottom: 1.5rem; color: var(--primary-cyan); display: flex; align-items: center; gap: 10px;">
+                                <span>📝</span> AI Evaluation Log
+                            </h4>
+                            <div style="line-height: 1.8; color: #cbd5e1; font-size: 0.9rem; max-height: 300px; overflow-y: auto; padding-right: 1rem;">
+                                ${record.transcript && record.transcript.length > 0 ? 
+                                    record.transcript.map(t => `<div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 10px;">
+                                        <div style="color: var(--primary-cyan); font-weight: 700; font-size: 0.75rem;">Q: ${t.q}</div>
+                                        <div style="color: #fff; margin: 4px 0;">A: ${t.a}</div>
+                                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                                            <div style="color: var(--text-muted); font-size: 0.7rem;">Score: ${t.s}%</div>
+                                            ${t.v ? `<a href="${t.v}" target="_blank" style="color: var(--primary-cyan); font-size: 0.7rem; font-weight: 700; text-decoration: none; border: 1px solid rgba(0,229,255,0.2); padding: 2px 8px; border-radius: 4px; background: rgba(0,229,255,0.05);">📹 VIEW VIDEO</a>` : ''}
+                                        </div>
+                                    </div>`).join('') : 
+                                    'No detailed transcript available.'}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                            <button class="action-btn btn-approve" onclick="adminAction('${record.candidate}', 'approve')">Approve ✅</button>
+                            <button class="action-btn btn-reject" onclick="adminAction('${record.candidate}', 'reject')">Reject ❌</button>
+                            <button class="action-btn ${record.access === 'revoke' ? 'btn-grant' : 'btn-revoke'}" onclick="adminAction('${record.candidate}', '${record.access === 'revoke' ? 'grant' : 'revoke'}')">
+                                ${record.access === 'revoke' ? 'Grant Access 🔓' : 'Revoke Access 🔒'}
+                            </button>
+                            <button class="action-btn btn-reject" style="background: #000; border: 1px solid #ef4444;" onclick="adminAction('${record.candidate}', 'delete')">Delete PERMANENTLY 🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="stat-card" style="padding: 2.5rem; background: rgba(0,229,255,0.03); border-color: rgba(0,229,255,0.1);">
+                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 2px;">Simulation Score</div>
+                            <div style="font-size: 4rem; font-weight: 800; color: var(--primary-cyan);" class="outfit">${record.score}%</div>
+                        </div>
+
+                        <div class="box" style="padding: 1.5rem; border-radius: 20px;">
+                            <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Simulation Metrics</h4>
+                            <div style="display:flex; flex-direction:column; gap: 1rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <span style="color:var(--text-muted); font-size: 0.85rem;">Integrity Rating</span>
+                                    <span style="font-weight:700; color: ${record.integrity==='Secure'?'#22c55e':'#ef4444'}">${record.integrity}</span>
+                                </div>
+                                ${record.integrity_notes ? `
+                                <div style="padding: 10px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.1); border-radius: 8px;">
+                                    <div style="font-size: 0.65rem; color: #ef4444; font-weight: 800; text-transform: uppercase; margin-bottom: 5px;">Violation Log</div>
+                                    <div style="font-size: 0.75rem; color: #fff; max-height: 80px; overflow-y: auto;">
+                                        ${record.integrity_notes.split('|').map(n => `<div style="margin-bottom:4px;">${n.trim()}</div>`).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <span style="color:var(--text-muted); font-size: 0.85rem;">Primary Sentiment</span>
+                                    <span style="font-weight:700; color: var(--primary-cyan); text-transform: uppercase; letter-spacing: 1px;">${record.primary_sentiment || 'Neutral'}</span>
+                                </div>
+                                <div style="padding: 1rem; background: rgba(0,229,255,0.02); border-radius: 12px; border: 1px solid rgba(0,229,255,0.1);">
+                                    <div style="font-size: 0.65rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">Neural State Summary</div>
+                                    <div style="font-size: 0.8rem; line-height: 1.5; color: #cbd5e1;">
+                                        Candidate displayed a <b>${record.primary_sentiment || 'balanced'}</b> emotional profile. 
+                                        ${record.score > 75 ? 'Strong cognitive engagement and confidence detected.' : 'Moderate engagement with some signs of situational pressure.'}
+                                    </div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:var(--text-muted); font-size: 0.85rem;">Candidate Contact</span>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.75rem; color: #fff;">${record.email}</div>
+                                        <div style="font-size: 0.75rem; color: var(--primary-cyan);">${record.phone}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('detailsModal')) closeModal();
+        }
+
+        async function adminAction(username, action) {
+            if(action === 'delete' && !confirm(`Are you sure you want to PERMANENTLY delete candidate ${username}? This cannot be undone.`)) return;
+            
+            const res = await fetch('/api/admin_action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({username, action})
+            });
+            const data = await res.json();
+            if(data.success) {
+                showToast(`Candidate ${action.toUpperCase()}D successfully`);
+                closeModal();
+                loadRecords();
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'toast outfit';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        function exportToCSV() {
+            const rows = document.querySelectorAll('#records-table tr');
+            let csv = 'Rank,Date,Time,Candidate,Experience,Email,Phone,Integrity,Score,Status\n';
+            
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    try {
+                        const rank = row.cells[0].innerText;
+                        const dateText = row.cells[1].innerText.split('\n');
+                        const date = dateText[0] || '';
+                        const time = (dateText[1] || '').replace('at ', '');
+                        const nameText = row.cells[2].innerText.split('\n');
+                        const name = nameText[0] || '';
+                        const exp = nameText[1] || '';
+                        const email = row.cells[3].querySelector('a[href*="mail"]').innerText.trim();
+                        const phone = row.cells[3].querySelector('a[href*="wa.me"]').innerText.trim();
+                        const integrity = row.cells[5].innerText.replace(/[🛡️⚠️\s]/g, '').trim();
+                        const score = row.cells[6].innerText.replace('%', '');
+                        const status = row.cells[7].innerText;
+                        
+                        csv += `"${rank}","${date}","${time}","${name}","${exp}","${email}","${phone}","${integrity}","${score}","${status}"\n`;
+                    } catch(e) { console.error(e); }
+                }
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `AI_Simulation_Logs_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('username');
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>

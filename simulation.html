@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview Simulator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    <style>
+        .candidate-info-card { background: rgba(0,229,255,0.03); border: 1px solid rgba(0,229,255,0.1); padding: 1.5rem; border-radius: 16px; margin-top: 1.5rem; text-align: left;}
+        .candidate-info-card p { margin: 12px 0; color: var(--text-main); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;}
+        .candidate-info-card span { color: var(--primary-cyan); font-weight: 700; text-align: right; max-width: 70%; line-height: 1.4;}
+        
+        .skill-tag {
+            display: inline-block;
+            background: rgba(0,229,255,0.1);
+            color: var(--primary-cyan);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 2px;
+            border: 1px solid rgba(0,229,255,0.2);
+            transition: all 0.3s;
+        }
+        .skill-tag:hover {
+            background: var(--primary-cyan);
+            color: #000;
+        }
+
+        #live-transcript-box {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes pulse-border {
+            0%   { box-shadow: 0 0 0 0 rgba(0,229,255,0.4); }
+            70%  { box-shadow: 0 0 0 10px rgba(0,229,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,229,255,0); }
+        }
+        #live-transcript-box.listening {
+            animation: pulse-border 1.5s infinite;
+            border-color: var(--primary-cyan);
+            background: rgba(0, 229, 255, 0.05);
+        }
+        #live-transcript-box.speaking {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .video-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .timer-display {
+            font-family: 'Outfit', monospace;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-cyan);
+        }
+
+        /* New Integrity Styles */
+        .integrity-analysis-card {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 16px;
+            padding: 1.2rem;
+            margin-top: 1rem;
+        }
+        .integrity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+        .integrity-item:last-child { margin-bottom: 0; }
+        .integrity-label { color: var(--text-muted); }
+        .integrity-value { font-weight: 700; }
+        .integrity-value.warning { color: #ef4444; }
+        .integrity-value.secure { color: #22c55e; }
+
+        .overlay-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 5;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+        
+        .status-badge-not-secure {
+            color: #ef4444 !important;
+            border-color: #ef4444 !important;
+            background: rgba(0,0,0,0.8) !important;
+            animation: pulse-red-text 1s infinite;
+        }
+        @keyframes pulse-red-text {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Modernized Styles */
+        :root {
+            --primary-cyan: #00E5FF;
+            --bg-dark: #0b0e14;
+            --card-bg: rgba(18, 24, 34, 0.8);
+            --border-glow: rgba(0, 229, 255, 0.2);
+        }
+        .simulation-container {
+            animation: fadeIn 0.8s ease;
+        }
+        .glass-box {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+    </style>
+</head>
+<body class="simulation-layout">
+    <div class="topbar">
+        <h1>Interview Room</h1>
+        <div class="subtitle" id="top-stage">PHASE 1: INITIALIZATION</div>
+        <button class="btn-outline btn-logout" onclick="logout()">Exit Session</button>
+    </div>
+
+    <!-- Phase 1: Profile -->
+    <div id="phase1" class="container" style="max-width: 500px; margin: 0 auto;">
+        <div class="card">
+            <div class="subtitle">STEP 1 / 3</div>
+            <h2 class="outfit">Cognitive Profile</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 2rem;">Help us calibrate the AI model to your profile.</p>
+            
+            <div class="input-group">
+                <label class="input-label">Age Range</label>
+                <input type="number" id="cand-age" placeholder="24" min="18">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Expertise Level</label>
+                <select id="cand-exp">
+                    <option value="fresher">Fresher (0-1 Years)</option>
+                    <option value="experienced">Experienced (1+ Years)</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="goToPhase2()">Initialize Matrix ➡</button>
+        </div>
+    </div>
+
+    <!-- Phase 2: Resume -->
+    <div id="phase2" class="container" style="max-width: 600px; margin: 0 auto; display: none;">
+        <div class="card">
+            <div class="subtitle">STEP 2 / 3</div>
+            <h2 class="outfit">Dossier Intelligence</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 2rem;">Upload your CV for neural skill mapping.</p>
+            
+            <div class="input-group" style="text-align:center;" id="upload-section">
+                <input type="file" id="resume-file" accept=".pdf,.txt" style="display:none;" onchange="handleResumeUpload()">
+                <button class="btn-outline" style="width:100%; padding:2.5rem; border-style:dashed; border-width: 2px; border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.02);" onclick="document.getElementById('resume-file').click()">
+                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📄</div>
+                    <span id="file-label" style="color: var(--primary-cyan); font-weight: 600;">Click to upload PDF Resume</span>
+                </button>
+            </div>
+            
+            <div id="parsed-info" class="candidate-info-card" style="display:none;">
+                <h4 style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 1px;">Extracted Intelligence</h4>
+                <p>Identity: <span id="info-name">...</span></p>
+                <p>Location: <span id="info-loc">...</span></p>
+                <p>Qualifications: <span id="info-qual">...</span></p>
+                <div style="margin-top: 1rem;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Neural Tags</div>
+                    <div id="info-skills" style="display: flex; flex-wrap: wrap; gap: 4px;">...</div>
+                </div>
+            </div>
+            
+            <div id="sim-ready-msg" style="display:none; margin-top: 1.5rem;">
+                <p style="color:var(--text-muted); font-size:0.85rem; line-height: 1.5;">Environment ready. The engine has synthesized a custom question bank based on your skills.</p>
+                <button class="btn btn-primary" id="btn-start-sim" onclick="startSimulation()">Start Simulation Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase 3: Interview -->
+    <div id="phase3" class="simulation-container" style="display: none; min-height: 100vh; padding: 2rem 1.5rem;">
+        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 2rem; max-width: 1400px; margin: 0 auto;">
+            
+            <!-- Left: Visual Feed & Active Question -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%;">
+                <div class="glass-box" style="padding: 1rem 1.5rem; border-radius: 20px;">
+                    <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">Active Question</div>
+                    <div id="question-display" class="outfit" style="font-size: 1.1rem; color: #fff; font-weight: 600; line-height: 1.4;">Loading next question...</div>
+                </div>
+
+                <div id="video-container" style="border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 15px 30px rgba(0,0,0,0.4); position: relative; border-radius: 24px; overflow: hidden; background: #000; max-height: 50vh; aspect-ratio: 16/9;">
+                    <video id="webcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
+                    <canvas id="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%;"></canvas>
+                    <div class="overlay-status" id="integrity-badge">🛡️ INTEGRITY: SECURE</div>
+                    <div id="emotion-matrix" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); width: 180px; z-index: 100;">
+                        <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Neural Matrix</div>
+                        <div id="emotion-bars" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Dynamic Emotion Bars -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="live-transcript-box" style="padding: 1rem; border-radius: 20px; background: rgba(18, 24, 34, 0.8); border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                        <div id="transcript-status" style="font-size: 0.65rem; font-weight: 800; color: var(--primary-cyan); text-transform: uppercase; letter-spacing: 1px;">System Initializing...</div>
+                        <div style="display: flex; gap: 1rem;">
+                            <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">ANSWER TIME</div><div id="q-timer" style="font-weight: 800; color: var(--primary-cyan); font-size: 0.9rem;">30s</div></div>
+                            <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">SESSION</div><div id="session-timer" style="font-weight: 800; color: #fff; font-size: 0.9rem;">00:00</div></div>
+                        </div>
+                    </div>
+                    <div id="last-transcription" class="outfit" style="height: 60px; overflow-y: auto; font-size: 0.9rem; color: rgba(255,255,255,0.8); line-height: 1.5; font-style: italic;">
+                        Transcription will appear here...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Sidebar Info -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%;">
+                <div class="glass-box" style="flex-grow: 1; padding: 1rem; border-radius: 20px; display: flex; flex-direction: column;">
+                    <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Question Bank</div>
+                    <div id="question-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <!-- Questions will be injected here -->
+                    </div>
+                </div>
+
+                <div class="glass-box" style="padding: 1rem; border-radius: 20px;">
+                    <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Integrity Monitor</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
+                            <span class="integrity-label">Tab Switch</span>
+                            <span id="stat-tab" class="integrity-value secure">0 / 3</span>
+                        </div>
+                        <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
+                            <span class="integrity-label">Noise Level</span>
+                            <span id="stat-noise" class="integrity-value secure">Normal</span>
+                        </div>
+                        <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
+                            <span class="integrity-label">Face Focus</span>
+                            <span id="stat-face" class="integrity-value secure">Stable</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-box" style="padding: 1rem; border-radius: 20px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Completion</span>
+                        <span id="q-counter" style="font-weight: 800; color: var(--primary-cyan); font-size: 0.9rem;">0 / 0</span>
+                    </div>
+                    <div style="width:100%; height:4px; background: rgba(255,255,255,0.05); border-radius: 2px;">
+                        <div id="q-progress" style="width:0%; height:100%; background: var(--primary-cyan); border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+
+                <div id="simulation-status-pill" style="padding: 0.75rem; text-align: center; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border: 1px solid rgba(255,255,255,0.05);">
+                    Simulation Active
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase 4: Finish -->
+    <div id="phase4" class="container" style="max-width: 500px; margin: 0 auto; display: none;">
+        <div class="card" style="border-top: 4px solid var(--primary-cyan);">
+            <div style="font-size: 3rem; margin-bottom: 1.5rem;">🏁</div>
+            <h2 class="outfit">Simulation Complete</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 1.5rem 0; line-height: 1.6;">
+                The AI engine is now synthesizing your performance score, sentiment analysis, and integrity report. 
+            </p>
+            <div style="background: rgba(0,229,255,0.05); padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(0,229,255,0.1); margin-bottom: 2rem;">
+                <p style="color: #fff; font-size: 0.9rem; font-weight: 600;">Detailed analytics will be available in your dashboard shortly.</p>
+            </div>
+            <button class="btn btn-primary" onclick="window.location.href='/index.html?show_results=1'">📊 View Result & Analytics</button>
+        </div>
+    </div>
+
+    <script>
+        // ... (Existing script remains the same for logic) ...
+        // Note: I'm keeping the logic from simulation.html but updating the display handling
+        
+        let questions = [];
+        let currentQIndex = -1;
+        let isSimActive = false;
+        let isAnswering = false;
+        let timeElapsed = 0;
+        let timerInterval;
+        let recognition;
+        let mediaStream;
+        let fullSessionRecorder;
+        
+        let totalViolations = 0;
+        let tabWarn = 0;
+        let faceWarn = 0;
+        let noiseWarn = 0;
+
+        async function goToPhase2() {
+            const age = document.getElementById('cand-age').value;
+            if(!age) { showToast("⚠️ Age is required for calibration."); return; }
+            document.getElementById('phase1').style.display = 'none';
+            document.getElementById('phase2').style.display = 'block';
+            document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
+        }
+
+        async function handleResumeUpload() {
+            const file = document.getElementById('resume-file').files[0];
+            if(!file) return;
+            
+            document.getElementById('file-label').innerText = `Uploading: ${file.name}...`;
+            
+            const formData = new FormData();
+            formData.append("resume", file);
+            formData.append("experience", document.getElementById('cand-exp').value);
+            formData.append("username", localStorage.getItem('username'));
+
+            try {
+                const res = await fetch('/api/upload_resume', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if(data.success) {
+                    const info = data.candidate_info || {};
+                    document.getElementById('file-label').innerText = `Success: ${file.name}`;
+                    document.getElementById('parsed-info').style.display = 'block';
+                    document.getElementById('info-name').innerText = info.name || 'N/A';
+                    document.getElementById('info-loc').innerText = info.location || 'N/A';
+                    document.getElementById('info-qual').innerText = info.qualifications || 'N/A';
+                    
+                    const skillBox = document.getElementById('info-skills');
+                    skillBox.innerHTML = '';
+                    if(info.skills && info.skills.length > 0) {
+                        info.skills.forEach(s => {
+                            const tag = document.createElement('span');
+                            tag.className = 'skill-tag';
+                            tag.innerText = s;
+                            skillBox.appendChild(tag);
+                        });
+                    } else {
+                        skillBox.innerHTML = '<span style="color:var(--text-muted); font-size:0.8rem;">None detected</span>';
+                    }
+                    
+                    document.getElementById('sim-ready-msg').style.display = 'block';
+                    questions = data.questions || [];
+                }
+            } catch(e) { showToast("⚠️ Matrix Sync Error"); }
+        }
+
+        function logout() {
+            isSimActive = false;
+            try {
+                if(typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+                if(typeof recognition !== 'undefined' && recognition) recognition.stop();
+                if(typeof fullSessionRecorder !== 'undefined' && fullSessionRecorder && fullSessionRecorder.state !== 'inactive') fullSessionRecorder.stop();
+            } catch(e) { console.error("Error stopping session:", e); }
+            
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        // Logic functions (startSimulation, speak, nextQuestion, etc.) should be preserved from existing file
+        // I will truncate here and only update the visual wrappers if I were to rewrite.
+        // For now, I will just apply the visual changes to the existing file.
+    </script>
+    <!-- [LOGIC SCRIPT REINSERTED FROM ORIGINAL simulation.html] -->
+    <script>
+        // Copying the original logic back to ensure no breakage
+        async function startSimulation() {
+            isSimActive = true;
+            document.getElementById('phase2').style.display = 'none';
+            document.getElementById('phase3').style.display = 'block';
+            document.getElementById('top-stage').innerText = "PHASE 3: SIMULATION ACTIVE";
+            
+            // Populate Question Bank UI
+            const listContainer = document.getElementById('question-list');
+            listContainer.innerHTML = questions.map((q, i) => `
+                <div id="q-item-${i}" style="padding: 10px 15px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 0.75rem; color: var(--text-muted); border: 1px solid transparent; transition: all 0.3s;">
+                    <span style="margin-right: 8px;">${i+1}.</span> ${q}
+                </div>
+            `).join('');
+
+            // Start Webcam
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('webcam').srcObject = mediaStream;
+            
+            // Init Recorder
+            fullSessionRecorder = new MediaRecorder(stream);
+            fullSessionRecorder.ondataavailable = e => { if(e.data.size > 0) videoChunks.push(e.data); };
+            fullSessionRecorder.start();
+
+            // Init Global Timer
+            timerInterval = setInterval(() => {
+                timeElapsed++;
+                const min = Math.floor(timeElapsed / 60).toString().padStart(2, '0');
+                const sec = (timeElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('sim-timer').innerText = `${min}:${sec}`;
+            }, 1000);
+
+            // Init Face API
+            try {
+                await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+                await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+            } catch(e) { console.error("FaceAPI Load Error", e); }
+            
+            startIntegrityMonitoring();
+            nextQuestion();
+        }
+
+        let qTimerInterval;
+        let qTimeLeft = 30;
+        let answerRecorder;
+        let answerChunks = [];
+
+        function startAnswerRecording() {
+            if(!mediaStream) return;
+            answerChunks = [];
+            answerRecorder = new MediaRecorder(mediaStream);
+            answerRecorder.ondataavailable = e => { if(e.data.size > 0) answerChunks.push(e.data); };
+            answerRecorder.start();
+        }
+
+        async function stopAnswerRecording() {
+            return new Promise(resolve => {
+                if(!answerRecorder || answerRecorder.state === 'inactive') {
+                    resolve(null);
+                    return;
+                }
+                answerRecorder.onstop = () => {
+                    const blob = new Blob(answerChunks, { type: 'video/webm' });
+                    resolve(blob);
+                };
+                answerRecorder.stop();
+            });
+        }
+
+        async function nextQuestion() {
+            if(qTimerInterval) clearInterval(qTimerInterval);
+            
+            currentQIndex++;
+            if(currentQIndex >= questions.length) {
+                finishSimulation();
+                return;
+            }
+
+            // Update UI for previous questions
+            for(let i=0; i < questions.length; i++) {
+                const item = document.getElementById(`q-item-${i}`);
+                if(i < currentQIndex) {
+                    item.style.background = "rgba(34, 197, 94, 0.1)";
+                    item.style.borderColor = "rgba(34, 197, 94, 0.3)";
+                    item.style.color = "#22c55e";
+                    item.innerHTML = `✅ ${questions[i]}`;
+                } else if(i === currentQIndex) {
+                    item.style.background = "rgba(0, 229, 255, 0.1)";
+                    item.style.borderColor = "rgba(0, 229, 255, 0.5)";
+                    item.style.color = "#fff";
+                }
+            }
+
+            isAISpeaking = true;
+            isAnswering = false;
+
+            const q = questions[currentQIndex];
+            document.getElementById('question-display').innerText = q;
+            document.getElementById('q-counter').innerText = `${currentQIndex + 1} / ${questions.length}`;
+            document.getElementById('q-progress').style.width = `${((currentQIndex + 1) / questions.length) * 100}%`;
+            
+            // Update AI Action text in transcript status area
+            const statusLabel = document.getElementById('transcript-status');
+            if (statusLabel) statusLabel.innerText = "AI is Speaking...";
+            
+            await speak(q);
+            
+            // Wait 0.5s after speaking
+            await new Promise(r => setTimeout(r, 500));
+            
+            isAISpeaking = false;
+            if (statusLabel) statusLabel.innerText = "Listening for Answer...";
+            
+            isAnswering = true;
+            startQuestionTimer();
+            startVoiceRecognition();
+            startAnswerRecording();
+        }
+
+        function startQuestionTimer() {
+            qTimeLeft = 30;
+            document.getElementById('q-timer').innerText = `${qTimeLeft}s`;
+            document.getElementById('q-timer').style.color = "#00e5ff";
+            
+            qTimerInterval = setInterval(() => {
+                qTimeLeft--;
+                document.getElementById('q-timer').innerText = `${qTimeLeft}s`;
+                
+                if(qTimeLeft <= 10) document.getElementById('q-timer').style.color = "#ef4444";
+                
+                if(qTimeLeft <= 0) {
+                    clearInterval(qTimerInterval);
+                    isAnswering = false;
+                    const finalT = document.querySelector('#last-transcription .final')?.innerText || "";
+                    const interimT = document.querySelector('#last-transcription .interim')?.innerText || "";
+                    handleQuestionTimeout(finalT + " " + interimT);
+                }
+            }, 1000);
+        }
+
+        async function speak(text) {
+            return new Promise(resolve => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.onend = resolve;
+                window.speechSynthesis.speak(utterance);
+                
+                document.getElementById('live-transcript-box').className = 'speaking';
+            });
+        }
+
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if(!SpeechRecognition) {
+                showToast("⚠️ Speech recognition not supported in this browser.");
+                return;
+            }
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            let finalTranscript = '';
+            document.getElementById('live-transcript-box').className = 'listening';
+            document.getElementById('transcript-status').innerText = 'Listening for response...';
+            document.getElementById('last-transcription').innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now...</span>';
+            
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                document.getElementById('last-transcription').innerHTML = `<span class="final">${finalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
+            };
+
+            recognition.onend = async () => {
+                if(isSimActive && qTimeLeft > 0) {
+                    // This triggers if the user stops speaking manually or if there's a glitch
+                    // We don't want to advance yet if the timer is still running
+                    // unless we want to allow early submission.
+                    // But the requirement says "every question take 30 sec", 
+                    // which usually means a fixed window. 
+                    // Let's restart recognition if timer is still going.
+                    if (qTimeLeft > 0) recognition.start();
+                }
+            };
+            
+            recognition.start();
+        }
+
+        async function handleQuestionTimeout(transcript) {
+            if(recognition) {
+                try { recognition.stop(); } catch(e) {}
+            }
+            
+            const currentEmotion = window.currentDisplayEmotion || "neutral";
+            
+            const videoBlob = await stopAnswerRecording();
+            
+            // AI Evaluate candidate answer at a time but not show to candidate
+            try {
+                await analyzeAnswer(transcript, currentEmotion, videoBlob);
+            } catch(e) { console.error("Answer analysis error", e); }
+            
+            const statusLabel = document.getElementById('transcript-status');
+            if (statusLabel) statusLabel.innerText = "Updating Records...";
+            await new Promise(r => setTimeout(r, 1000)); // Brief pause for UX
+            
+            nextQuestion();
+        }
+
+        async function analyzeAnswer(text, emotion, videoBlob) {
+            const formData = new FormData();
+            formData.append('username', localStorage.getItem('username'));
+            formData.append('question', questions[currentQIndex]);
+            formData.append('answer', text || "No response captured.");
+            formData.append('emotion', emotion || "neutral");
+            if (videoBlob) {
+                formData.append('video', videoBlob, 'answer.webm');
+            }
+
+            // We send it to the endpoint that handles scoring and DB saving
+            const res = await fetch('/api/process_audio', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+                body: formData
+            });
+            return await res.json();
+        }
+
+        let audioContext, analyser, microphone, javascriptNode;
+        const NOISE_THRESHOLD = 0.15; // Adjusted for average mic sensitivity
+
+        function startIntegrityMonitoring() {
+            // 1. Tab switching (Enhanced)
+            window.onblur = () => triggerWarning('tab');
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === 'hidden') triggerWarning('tab');
+            });
+            
+            // 2. Face & Multi-person Detection
+            setInterval(async () => {
+                if(!isSimActive) return;
+                try {
+                    const videoEl = document.getElementById('webcam');
+                    // Switching to SsdMobilenetv1 for higher accuracy (deeper CNN model)
+                    const detection = await faceapi.detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
+                    
+                    if(!detection) {
+                        triggerWarning('face');
+                    } else {
+                        const expressions = {...detection.expressions};
+                        
+                        // Ultra-Boost for Visibility
+                        for (let key in expressions) {
+                            if (key !== 'neutral') expressions[key] *= 5.0; 
+                        }
+                        
+                        // Normalize
+                        let sum = Object.values(expressions).reduce((a,b) => a+b, 0);
+                        const normalized = {};
+                        for (let key in expressions) normalized[key] = expressions[key] / (sum || 1);
+
+                        // Fixed List for UI
+                        const targetEmotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'disgusted'];
+                        const emotionBars = document.getElementById('emotion-bars');
+                        
+                        if (emotionBars) {
+                            emotionBars.innerHTML = targetEmotions.map(emo => {
+                                const val = normalized[emo] || 0;
+                                return `
+                                    <div style="display:flex; flex-direction:column; gap: 3px;">
+                                        <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                            <span>${emo === 'fearful' ? 'Fear' : (emo === 'surprised' ? 'Surprise' : emo)}</span>
+                                            <span>${Math.round(val * 100)}%</span>
+                                        </div>
+                                        <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                            <div style="width: ${val * 100}%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+
+                        let top = Object.entries(normalized).sort((a,b) => b[1]-a[1])[0][0];
+                        if (top === 'neutral' && expressions.neutral > 0.6) top = 'confidence';
+                        if (top === 'happy') top = 'interest';
+                        
+                        if (!window.emotionHistory) window.emotionHistory = [];
+                        window.emotionHistory.push(top);
+                        if (window.emotionHistory.length > 5) window.emotionHistory.shift();
+                        
+                        // Pick the most frequent emotion in the last 3 frames to reduce flickering
+                        const counts = window.emotionHistory.reduce((acc, curr) => {
+                            acc[curr] = (acc[curr] || 0) + 1;
+                            return acc;
+                        }, {});
+                        const smoothedTop = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                        
+                        document.getElementById('emotion-display').innerText = `AI EMOTION: ${smoothedTop.toUpperCase()}`;
+                    }
+
+                    // Check for multi-person separately if needed, or stick to single face detection
+                    const allDetections = await faceapi.detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }));
+                    if (allDetections.length > 1) triggerWarning('multi-person');
+
+                } catch(e) { console.warn("Detection error", e); }
+            }, 1000); // Increased frequency to 1s
+
+            // 3. Noise Detection
+            startNoiseDetection();
+        }
+
+        async function startNoiseDetection() {
+            try {
+                const stream = document.getElementById('webcam').srcObject;
+                if (!stream) return;
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                analyser.fftSize = 512;
+                microphone.connect(analyser);
+
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                const sampleRate = audioContext.sampleRate;
+
+                const checkNoise = () => {
+                    if (!isSimActive) return;
+                    if (!isAnswering || isAISpeaking) {
+                        setTimeout(checkNoise, 500);
+                        return;
+                    }
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    // TARGET: Tighter Voice Frequency Range (approx 300Hz to 2500Hz)
+                    const lowBin = Math.floor(300 * (analyser.fftSize / sampleRate));
+                    const highBin = Math.ceil(2500 * (analyser.fftSize / sampleRate));
+                    
+                    let voiceSum = 0;
+                    for (let i = lowBin; i <= highBin; i++) voiceSum += dataArray[i];
+                    
+                    let averageVoice = voiceSum / (highBin - lowBin + 1);
+                    let vocalIntensity = averageVoice / 128;
+
+                    // Speech is characterized by rhythmic energy in these bands.
+                    // Background hum is usually steady and lower intensity.
+                    if (vocalIntensity > 0.55) { 
+                        triggerWarning('noise');
+                    }
+                    
+                    if (isSimActive) setTimeout(checkNoise, 2000); 
+                };
+                checkNoise();
+            } catch (e) { console.error("Voice detection init error", e); }
+        }
+
+        function triggerWarning(type) {
+            if(!isSimActive) return;
+            let note = "";
+            let severity = "low";
+
+            if(type === 'tab') {
+                tabWarn++;
+                totalViolations++;
+                note = "Tab Switching Detected";
+                const statTab = document.getElementById('stat-tab');
+                statTab.innerText = `${tabWarn} / 3`;
+                statTab.className = `integrity-value warning`;
+            } else if (type === 'multi-person') {
+                totalViolations++;
+                note = "Multiple Persons in Frame";
+            } else if (type === 'noise') {
+                totalViolations++;
+                note = "Secondary Person Voice Detected";
+                const statNoise = document.getElementById('stat-noise');
+                statNoise.innerText = "Voice detected";
+                statNoise.className = "integrity-value warning";
+                setTimeout(() => {
+                    if (isSimActive) {
+                        statNoise.innerText = "Normal";
+                        statNoise.className = "integrity-value secure";
+                    }
+                }, 3000);
+            } else {
+                totalViolations++;
+                note = "Face Out of View";
+                const statFace = document.getElementById('stat-face');
+                statFace.innerText = "Lost Focus";
+                statFace.className = "integrity-value warning";
+                setTimeout(() => {
+                    if (isSimActive) {
+                        statFace.innerText = "Stable";
+                        statFace.className = "integrity-value secure";
+                    }
+                }, 3000);
+            }
+            
+            // Show warning UI
+            const warningBadge = document.getElementById('integrity-warning-badge');
+            const warningCountDisplay = document.getElementById('warning-count-display');
+            if (warningBadge) {
+                warningBadge.style.display = 'block';
+                warningCountDisplay.innerText = totalViolations;
+                // Animate it
+                warningBadge.style.animation = 'none';
+                void warningBadge.offsetWidth;
+                warningBadge.style.animation = 'pulse-red-text 1s';
+            }
+
+            // Termination check removed as requested
+            // totalViolations is tracked for logging but will not forcefully end the session.
+            
+            // Removed the large violation-overlay display logic as requested
+            // Feedback is now handled via the top-left badge and the corner toasts.
+
+            // Update UI Badge to "NOT SECURE" (Top Left)
+            const badge = document.getElementById('integrity-badge');
+            if (badge) {
+                badge.innerHTML = `<span style="color: #ef4444;">⚠️ NOT SECURE</span> (${note.toUpperCase()})`;
+                badge.classList.add('status-badge-not-secure');
+                setTimeout(() => {
+                    if (isSimActive) {
+                        badge.innerHTML = "🛡️ INTEGRITY: SECURE";
+                        badge.classList.remove('status-badge-not-secure');
+                    }
+                }, 5000);
+            }
+            
+            // Log violation to backend
+            fetch('/api/log_violation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
+            });
+
+            // showToast(`⚠️ Integrity Alert: ${note.toUpperCase()}`);
+        }
+
+        function dismissViolation() {
+            // Logic removed with overlay
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'toast outfit';
+            t.innerText = msg;
+            t.style.background = '#ef4444';
+            t.style.color = '#fff';
+            t.style.position = 'fixed';
+            t.style.top = '20px';
+            t.style.right = '20px';
+            t.style.padding = '10px 20px';
+            t.style.borderRadius = '10px';
+            t.style.zIndex = '1000';
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function terminateSession(reason) {
+            isSimActive = false;
+            // Redirect to another window (page) as requested
+            window.location.href = `/terminated.html?reason=${encodeURIComponent(reason)}`;
+        }
+
+        async function finishSimulation() {
+            isSimActive = false;
+            clearInterval(timerInterval);
+            if(qTimerInterval) clearInterval(qTimerInterval);
+            
+            // Stop Webcam
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            if(fullSessionRecorder && fullSessionRecorder.state !== 'inactive') {
+                fullSessionRecorder.stop();
+                
+                // Wait for video chunks to collect
+                setTimeout(async () => {
+                    const blob = new Blob(videoChunks, { type: 'video/webm' });
+                    const formData = new FormData();
+                    formData.append('video', blob);
+                    formData.append('username', localStorage.getItem('username'));
+                    
+                    await fetch('/api/upload_full_video', {
+                        method: 'POST',
+                        body: formData
+                    });
+                }, 1000);
+            }
+            
+            document.getElementById('phase3').style.display = 'none';
+            document.getElementById('phase4').style.display = 'block';
+            document.getElementById('top-stage').innerText = "SESSION COMPLETE";
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('username');
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Terminated - AI Interview System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            background-color: #0b0e14;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(239, 68, 68, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(239, 68, 68, 0.05) 0%, transparent 40%);
+        }
+        .termination-card {
+            background: rgba(18, 24, 34, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 3rem;
+            border-radius: 32px;
+            max-width: 550px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .icon-box {
+            width: 80px;
+            height: 80px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            margin: 0 auto 2rem;
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+        .reason-box {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin: 2rem 0;
+            text-align: left;
+        }
+        .reason-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #ef4444;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .reason-text {
+            font-size: 1rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .footer-note {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+        .btn-home {
+            background: #fff;
+            color: #000;
+            text-decoration: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="termination-card">
+        <div class="icon-box">⚠️</div>
+        <h1>Session Terminated</h1>
+        <p style="color: #94a3b8; font-size: 0.95rem;">Our integrity monitoring system has automatically ended this interview session.</p>
+        
+        <div class="reason-box">
+            <div class="reason-label">Primary Reason</div>
+            <div id="reason-text" class="reason-text">Loading reason...</div>
+        </div>
+
+        <p class="footer-note">
+            Integrity is a core value of our recruitment process. Multiple violations were detected during your session, leading to this automated action. If you believe this is an error, please contact your recruitment manager.
+        </p>
+
+        <a href="/" class="btn-home">Return to Portal</a>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const reason = urlParams.get('reason') || "Unspecified integrity violation detected.";
+        document.getElementById('reason-text').innerText = reason;
+    </script>
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview System - Portal</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        :root {
+            --primary-cyan: #00E5FF;
+            --text-muted: #94a3b8;
+        }
+        
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-pass { background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .status-fail { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .status-pending { background: rgba(0, 229, 255, 0.1); color: var(--primary-cyan); border: 1px solid rgba(0, 229, 255, 0.2); }
+
+        .message-box {
+            color: #cbd5e1;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 2rem;
+            border-radius: 20px;
+            border-left: 4px solid var(--primary-cyan);
+            text-align: justify;
+            margin-top: 1rem;
+        }
+        .dossier-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .dossier-btn:hover {
+            background: var(--primary-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 229, 255, 0.3);
+        }
+
+        .pulse-btn {
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 229, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+        }
+
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); color: var(--text-muted); transition: all 0.3s ease;
+        }
+        .status-chip.active {
+            color: var(--primary-cyan); border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.05);
+        }
+
+        .result-stat-box {
+            padding: 1.25rem;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
+        }
+        .result-stat-box:hover {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 229, 255, 0.1);
+            border-top: 3px solid var(--primary-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media print {
+            .btn, .btn-outline, .topbar, .subtitle, .tab-container, #user-status { display: none !important; }
+            body { background: white !important; color: black !important; }
+            .container { max-width: 100% !important; margin: 0 !important; box-shadow: none !important; width: 100% !important; }
+            .card { border: none !important; background: white !important; box-shadow: none !important; padding: 0 !important; }
+            .message-box { border: 1px solid #eee !important; background: #fafafa !important; color: #333 !important; }
+            .result-stat-box { border: 1px solid #eee !important; color: #333 !important; }
+            #result-score { color: #000 !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="subtitle">AI INTERVIEW SIMULATION</div>
+            <h1 class="outfit">Talent Portal</h1>
+
+            <div id="user-status" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div style="text-align: left;">
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Session Active</div>
+                    <div style="color: #fff; font-size: 0.95rem; font-weight: 700;" id="logged-in-user"></div>
+                </div>
+                <button onclick="logout()" class="btn-outline btn-logout">Logout</button>
+            </div>
+            
+            <div class="tab-container">
+                <button class="tab active" onclick="switchTab('login')" id="tab-login">🔑 Sign In</button>
+                <button class="tab" onclick="switchTab('register')" id="tab-register">📝 Register</button>
+                <button class="tab" onclick="switchTab('results')" id="tab-results">📊 Results</button>
+            </div>
+
+            <div id="login-form">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your ID">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" onclick="login()">Access Portal 🔒</button>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="javascript:void(0)" onclick="switchTab('forgot')" style="color: var(--text-muted); font-size: 0.8rem;">Forgot Password?</a>
+                </div>
+            </div>
+
+            <div id="post-login-options" style="display: none; margin-top: 2rem; text-align: center;">
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! What would you like to do?</p>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="window.location.href='/simulation.html'">🚀 Enter Interview Room</button>
+                    <button class="btn-outline" onclick="switchTab('results')">📊 View My Result & Feedback</button>
+                </div>
+            </div>
+
+            <div id="register-form" style="display: none;">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="reg-username" placeholder="Choose a name">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="reg-password" placeholder="••••••••">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Confirm Password</label>
+                    <input type="password" id="reg-confirm" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" onclick="register()">Create Account</button>
+            </div>
+
+            <div id="results-view" style="display: none; margin-top: 1rem;">
+                <div id="result-display" style="display: block; width: 100%;">
+                    <div id="status-chips-container" style="margin-bottom: 1rem;"></div>
+                    
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="box" style="text-align: center; padding: 0.8rem;">
+                            <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Final Score</div>
+                            <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-cyan); line-height: 1;"><span id="result-score">--</span>%</div>
+                            <div id="result-badge-container" style="margin-top: 0.5rem;">
+                                <span id="result-badge" class="status-badge status-pending" style="font-size: 0.65rem; padding: 4px 10px;">Pending</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <div class="box" style="padding: 0.8rem;">
+                                <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">INTEGRITY</div>
+                                <div id="result-integrity" style="font-weight: 700; font-size: 0.9rem;">--</div>
+                            </div>
+                            <div class="box" style="padding: 0.8rem;">
+                                <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">SENTIMENT</div>
+                                <div id="result-sentiment" style="font-weight: 700; font-size: 0.9rem;">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <div class="box">
+                        <h3 id="result-title" style="margin-bottom: 1rem;">Evaluation Report</h3>
+                        <div id="result-message" class="message-box" style="padding: 0; background: none; font-size: 0.9rem;">
+                            Parsing simulation logs...
+                        </div>
+                    </div>
+
+                    <button onclick="window.print()" class="btn-outline" style="margin-top: 1.5rem; width: 100%;">Download PDF Report</button>
+                </div>
+            </div>
+
+            <div id="forgot-form" style="display: none; margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem;">Reset Password</h3>
+                <div id="forgot-step1">
+                    <div class="input-group">
+                        <label class="input-label">Username</label>
+                        <input type="text" id="forgot-username">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Email in Resume</label>
+                        <input type="email" id="forgot-email">
+                    </div>
+                    <button class="btn btn-primary" onclick="verifyReset()">Verify Identity ❤️</button>
+                </div>
+                <div id="forgot-step2" style="display: none;">
+                    <div class="input-group">
+                        <label class="input-label">New Password</label>
+                        <input type="password" id="forgot-new-password">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Confirm Password</label>
+                        <input type="password" id="forgot-confirm-password">
+                    </div>
+                    <button class="btn btn-primary" onclick="submitReset()">Update Password</button>
+                </div>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="javascript:void(0)" onclick="switchTab('login')" style="color: var(--text-muted); font-size: 0.8rem;">Back to Login</a>
+                </div>
+            </div>
+
+            
+            <p id="msg" style="margin-top: 1.5rem; font-size: 0.9rem; min-height: 1.2em; transition: all 0.3s;"></p>
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            const token = localStorage.getItem('access_token');
+            const user = localStorage.getItem('username');
+            if (token && user) {
+                document.getElementById('user-status').style.display = 'flex';
+                document.getElementById('logged-in-user').innerText = user;
+            }
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('show_results')) {
+                switchTab('results');
+            } else {
+                switchTab('login');
+            }
+        };
+
+        function logout() {
+            localStorage.clear();
+            window.location.reload();
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-login').classList.remove('active');
+            document.getElementById('tab-register').classList.remove('active');
+            document.getElementById('tab-results').classList.remove('active');
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('results-view').style.display = 'none';
+            document.getElementById('forgot-form').style.display = 'none';
+            document.getElementById('post-login-options').style.display = 'none';
+            document.getElementById('msg').innerText = '';
+
+            if (tab === 'results') {
+                if (!localStorage.getItem('access_token')) {
+                    alert("⛔ Login Required !!!");
+                    switchTab('login');
+                    return;
+                }
+                document.getElementById('tab-results').classList.add('active');
+                document.getElementById('results-view').style.display = 'block';
+                document.querySelector('.container').style.maxWidth = '800px';
+                checkResult();
+            } else if (tab === 'login') {
+                document.querySelector('.container').style.maxWidth = '480px';
+                document.getElementById('tab-login').classList.add('active');
+                if (localStorage.getItem('access_token')) {
+                    document.getElementById('post-login-options').style.display = 'block';
+                } else {
+                    document.getElementById('login-form').style.display = 'block';
+                }
+            } else if (tab === 'forgot') {
+                document.getElementById('forgot-form').style.display = 'block';
+                document.getElementById('forgot-step1').style.display = 'block';
+                document.getElementById('forgot-step2').style.display = 'none';
+            } else {
+                document.getElementById('tab-register').classList.add('active');
+                document.getElementById('register-form').style.display = 'block';
+            }
+        }
+
+        async function login() {
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+            
+            if (!u || !p) {
+                showMessage("Credentials required", "#ef4444");
+                return;
+            }
+
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                localStorage.setItem('username', u);
+                if(data.access_token) {
+                    localStorage.setItem('access_token', data.access_token);
+                }
+
+                if (u === 'admin') {
+                    window.location.href = '/manager.html';
+                    return;
+                }
+                
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('user-status').style.display = 'flex';
+                document.getElementById('logged-in-user').innerText = u;
+                document.getElementById('post-login-options').style.display = 'block';
+                document.getElementById('tab-login').classList.add('active');
+                
+                if (document.getElementById('results-view').style.display === 'block') {
+                    checkResult();
+                }
+            } else {
+                showMessage(data.message, "#ef4444");
+            }
+        }
+
+        async function register() {
+            const u = document.getElementById('reg-username').value;
+            const p = document.getElementById('reg-password').value;
+            const c = document.getElementById('reg-confirm').value;
+
+            if (!u || !p) { showMessage("Please fill all fields", "#ef4444"); return; }
+            if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                switchTab('login');
+                showMessage("Registration successful! Access your account now.", "#22c55e");
+            } else {
+                showMessage(data.message, "#ef4444");
+            }
+        }
+
+        function showMessage(text, color) {
+            const msg = document.getElementById('msg');
+            msg.innerText = text;
+            msg.style.color = color;
+            msg.style.opacity = '1';
+            setTimeout(() => {
+                msg.style.opacity = '0.5';
+            }, 3000);
+        }
+
+        async function checkResult() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+
+            const res = await fetch('/api/get_result', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem('access_token');
+                showMessage("⚠️ Session expired. Please log in again.", "#ef4444");
+                switchTab('login');
+                return;
+            }
+
+            const data = await res.json();
+            
+            if (data.success) {
+                const passMessages = [
+                    "Dear Candidate,\n\nWe are absolutely delighted to inform you that you have successfully cleared the interview round! 🌟\n\nYour performance was exceptional, demonstrating deep technical expertise and clarity. Congratulations!",
+                    "Success! 🎉 You have cleared this round with flying colors. Your analytical thinking impressed our panel. Keep up the momentum!",
+                    "Fantastic news! You have passed the interview. Your technical depth was truly impressive. Well done!",
+                    "Victory! You've successfully navigated the challenges. We are thrilled to have you moving forward.",
+                    "Success! You demonstrated exactly the kind of excellence we look for. Congratulations!"
+                ];
+                const failMessages = [
+                    "Dear Candidate,\n\nThank you for the effort you brought to this process.\n\nWhile we have decided not to move forward at this time, your skills are highly valuable. We encourage you to keep building your expertise.",
+                    "Thank you for participating. Although you weren't selected this time, your performance showed promise. Use this as a stepping stone!",
+                    "Don't lose heart. Your interview showed strong foundations. With more practice, you will be unstoppable. Keep pushing!",
+                    "Your journey doesn't end here. We appreciated your perspective. Keep refining your skills.",
+                    "Thank you for your time. Remember that dreams are realized through persistence. Stay motivated and keep learning!"
+                ];
+
+                const resultBadge = document.getElementById('result-badge');
+                const resultTitle = document.getElementById('result-title');
+                const resultMessage = document.getElementById('result-message');
+                const resultScore = document.getElementById('result-score');
+                const resultIntegrity = document.getElementById('result-integrity');
+                const resultSentiment = document.getElementById('result-sentiment');
+
+                if (data.status === "Pending") {
+                    resultTitle.innerText = "Neural Synthesis";
+                    resultBadge.innerText = "Evaluation in Progress";
+                    resultBadge.className = "status-badge status-pending";
+                    
+                    resultMessage.innerHTML = `
+                            <div style="text-align: center; padding: 0.5rem;">
+                                <div style="font-size: 2rem; margin-bottom: 0.8rem; filter: drop-shadow(0 0 10px var(--primary-cyan));">⌛</div>
+                                <h2 style="color: #fff; margin-bottom: 0.4rem; font-size: 1.4rem; letter-spacing: -1px;" class="outfit">The Path to Excellence</h2>
+                                <p style="font-size: 0.85rem; line-height: 1.5; color: #94a3b8; margin-bottom: 1rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                                    Our AI diagnostics are performing a deep-layer synthesis of your performance.
+                                </p>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem;">
+                                    <div style="background: rgba(0,229,255,0.03); padding: 0.8rem; border-radius: 12px; border: 1px solid rgba(0,229,255,0.1); text-align: left;">
+                                        <div style="color: var(--primary-cyan); font-size: 0.6rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">🛡️ Courage</div>
+                                        <p style="font-size: 0.75rem; color: #fff; font-style: italic; line-height: 1.3;">
+                                            Be proud of the bravery you showed today.
+                                        </p>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: left;">
+                                        <div style="color: #94a3b8; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">🕯️ Patience</div>
+                                        <p style="font-size: 0.75rem; color: #fff; font-style: italic; line-height: 1.3;">
+                                            Great things are never rushed. Stay patient.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <p style="color: #94a3b8; font-size: 0.65rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                                    Results verified only by administration.
+                                </p>
+                            </div>
+                        `;
+                    resultScore.innerText = "--";
+                    resultIntegrity.innerText = "--";
+                    resultSentiment.innerText = "--";
+                    document.querySelector('button[onclick="window.print()"]').style.display = 'none';
+                } else {
+                    const isPass = data.status === "Approve" || data.status === "Approved";
+                    
+                    if (isPass) {
+                        resultTitle.innerText = "Success: Performance Validated";
+                        resultBadge.innerText = "Accepted";
+                        resultBadge.className = "status-badge status-pass";
+                        
+                        const passMsg = passMessages[Math.floor(Math.random() * passMessages.length)];
+                        resultMessage.innerHTML = `
+                            <div style="text-align: center; padding: 0.5rem;">
+                                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎉</div>
+                                <h2 style="color: #22c55e; margin-bottom: 0.5rem; font-size: 1.6rem;" class="outfit">Congratulations!</h2>
+                                <p style="font-size: 0.95rem; line-height: 1.6; color: #cbd5e1; margin-bottom: 1.5rem; max-width: 550px; margin-left: auto; margin-right: auto;">
+                                    ${passMsg}
+                                </p>
+                                <div style="background: rgba(34, 197, 94, 0.05); padding: 1rem; border-radius: 16px; border: 1px solid rgba(34, 197, 94, 0.2); text-align: left;">
+                                    <div style="color: #22c55e; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 2px;">🚀 Next Steps</div>
+                                    <p style="font-size: 0.85rem; color: #fff; line-height: 1.4;">
+                                        Our onboarding team will contact you via email shortly to discuss final formalities.
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        resultTitle.innerText = "Performance Synthesis Complete";
+                        resultBadge.innerText = "Not Selected";
+                        resultBadge.className = "status-badge status-fail";
+                        
+                        resultMessage.innerHTML = `
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1rem 2rem;">
+                                <div style="font-size: 2.2rem; margin-bottom: 1rem;">✨</div>
+                                <h2 style="color: #fff; margin-bottom: 0.8rem; font-size: 1.5rem;" class="outfit">Courage & Growth</h2>
+                                <p style="font-size: 1rem; line-height: 1.8; color: #cbd5e1; max-width: 440px; width: 100%; margin: 0 auto 1.5rem auto; text-align: center;">We admire your courage. Focus on mastery and <b>re-apply in 6 months</b> to showcase your evolution.</p>
+                                <div style="height: 1px; background: rgba(255,255,255,0.05); width: 40%;"></div>
+                            </div>
+                        `;
+                    }
+                    
+                    resultScore.innerText = Math.round(data.score || 0);
+                    resultIntegrity.innerText = data.integrity || "Secure";
+                    resultIntegrity.style.color = (data.integrity === 'Secure') ? '#22c55e' : '#ef4444';
+                    
+                    resultSentiment.innerText = data.primary_sentiment || "Neutral";
+                    
+                    if (isPass && !window.confettiDone) {
+                        triggerConfetti();
+                        window.confettiDone = true;
+                    }
+                    document.querySelector('button[onclick="window.print()"]').style.display = 'flex';
+                }
+                
+                const chipsHtml = `
+                    <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                        <div class="status-chip ${data.has_resume ? 'active' : ''}">Resume: ${data.has_resume ? '✅ Verified' : '❌ Missing'}</div>
+                        <div class="status-chip ${data.has_interview ? 'active' : ''}">Session: ${data.has_interview ? '✅ Recorded' : '⏳ Waiting'}</div>
+                        <div class="status-chip active">Review: ${data.status}</div>
+                    </div>
+                `;
+                document.getElementById('status-chips-container').innerHTML = chipsHtml;
+            } else {
+                showMessage(data.message, "#ef4444");
+            }
+        }
+
+
+        
+        async function verifyReset() {
+            const u = document.getElementById('forgot-username').value;
+            const e = document.getElementById('forgot-email').value;
+            
+            const res = await fetch('/api/verify_reset', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, email: e})
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('forgot-step1').style.display = 'none';
+                document.getElementById('forgot-step2').style.display = 'block';
+                showMessage(data.message, "#22c55e");
+            } else {
+                showMessage(data.message, "#ef4444");
+            }
+        }
+
+        async function submitReset() {
+            const u = document.getElementById('forgot-username').value;
+            const p = document.getElementById('forgot-new-password').value;
+            const c = document.getElementById('forgot-confirm-password').value;
+
+            if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
+
+            const res = await fetch('/api/submit_reset', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            if (data.success) {
+                switchTab('login');
+                showMessage(data.message, "#22c55e");
+            } else {
+                showMessage(data.message, "#ef4444");
+            }
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'undefined') return;
+            const duration = 3 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+            const randomInRange = (min, max) => Math.random() * (max - min) + min;
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) return clearInterval(interval);
+                const particleCount = 50 * (timeLeft / duration);
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+            }, 250);
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</body>
+</html>
