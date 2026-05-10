@@ -216,10 +216,16 @@
                     <video id="webcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
                     <canvas id="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%;"></canvas>
                     <div class="overlay-status" id="integrity-badge">🛡️ INTEGRITY: SECURE</div>
+                    <div id="integrity-warning-badge" style="display:none; position: absolute; top: 60px; left: 20px; background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 0.8rem; z-index: 10; border: 2px solid white; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);">
+                        ⚠️ VIOLATION DETECTED (<span id="warning-count-display">0</span>)
+                    </div>
                     <div id="emotion-matrix" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); width: 180px; z-index: 100;">
-                        <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Neural Matrix</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Neural Matrix</div>
+                            <div id="emotion-display" style="font-size: 0.5rem; color: #fff; font-weight: 700; background: rgba(0,229,255,0.2); padding: 2px 6px; border-radius: 4px;">NEUTRAL</div>
+                        </div>
                         <div id="emotion-bars" style="display: flex; flex-direction: column; gap: 8px;">
-                            <!-- Dynamic Emotion Bars -->
+                            <div style="font-size: 0.6rem; color: var(--text-muted); text-align: center; margin-top: 10px;">Initializing AI...</div>
                         </div>
                     </div>
                 </div>
@@ -310,6 +316,8 @@
         let recognition;
         let mediaStream;
         let fullSessionRecorder;
+        let videoChunks = [];
+        let isAISpeaking = false;
         
         let totalViolations = 0;
         let tabWarn = 0;
@@ -391,6 +399,8 @@
             document.getElementById('phase3').style.display = 'block';
             document.getElementById('top-stage').innerText = "PHASE 3: SIMULATION ACTIVE";
             
+            const statusLabel = document.getElementById('transcript-status');
+
             // Populate Question Bank UI
             const listContainer = document.getElementById('question-list');
             listContainer.innerHTML = questions.map((q, i) => `
@@ -404,7 +414,8 @@
             document.getElementById('webcam').srcObject = mediaStream;
             
             // Init Recorder
-            fullSessionRecorder = new MediaRecorder(stream);
+            videoChunks = [];
+            fullSessionRecorder = new MediaRecorder(mediaStream);
             fullSessionRecorder.ondataavailable = e => { if(e.data.size > 0) videoChunks.push(e.data); };
             fullSessionRecorder.start();
 
@@ -413,14 +424,22 @@
                 timeElapsed++;
                 const min = Math.floor(timeElapsed / 60).toString().padStart(2, '0');
                 const sec = (timeElapsed % 60).toString().padStart(2, '0');
-                document.getElementById('sim-timer').innerText = `${min}:${sec}`;
+                document.getElementById('session-timer').innerText = `${min}:${sec}`;
             }, 1000);
 
             // Init Face API
             try {
-                await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
-                await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
-            } catch(e) { console.error("FaceAPI Load Error", e); }
+                if (statusLabel) statusLabel.innerText = "LOADING NEURAL MODELS...";
+                const modelUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl);
+                await faceapi.nets.faceExpressionNet.loadFromUri(modelUrl);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
+                console.log("FaceAPI Models Loaded");
+                if (statusLabel) statusLabel.innerText = "MATRIX SYNCHRONIZED";
+            } catch(e) { 
+                console.error("FaceAPI Load Error", e); 
+                if (statusLabel) statusLabel.innerText = "MODEL SYNC ERROR (Using Fallback)";
+            }
             
             startIntegrityMonitoring();
             nextQuestion();
@@ -474,6 +493,7 @@
                     item.style.background = "rgba(0, 229, 255, 0.1)";
                     item.style.borderColor = "rgba(0, 229, 255, 0.5)";
                     item.style.color = "#fff";
+                    item.innerHTML = `⭐ ${questions[i]}`;
                 }
             }
 
@@ -491,7 +511,9 @@
             
             await speak(q);
             
-            // Wait 0.5s after speaking
+            // Wait 0.5s after speaking as requested
+            const statusLabel = document.getElementById('transcript-status');
+            if (statusLabel) statusLabel.innerText = "PREPARING...";
             await new Promise(r => setTimeout(r, 500));
             
             isAISpeaking = false;
@@ -526,11 +548,28 @@
 
         async function speak(text) {
             return new Promise(resolve => {
+                // Clear any existing speech
+                window.speechSynthesis.cancel();
+                
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.onend = resolve;
+                utterance.onend = () => {
+                    document.getElementById('live-transcript-box').classList.remove('speaking');
+                    resolve();
+                };
+                utterance.onerror = (e) => {
+                    console.error("Speech Error:", e);
+                    document.getElementById('live-transcript-box').classList.remove('speaking');
+                    resolve(); // Resolve anyway to not block the flow
+                };
+                
+                document.getElementById('live-transcript-box').classList.add('speaking');
                 window.speechSynthesis.speak(utterance);
                 
-                document.getElementById('live-transcript-box').className = 'speaking';
+                // Fallback timeout in case onend doesn't fire (browser bug)
+                setTimeout(() => {
+                    document.getElementById('live-transcript-box').classList.remove('speaking');
+                    resolve();
+                }, text.length * 100 + 3000); // Rough estimate for speech duration
             });
         }
 
@@ -685,7 +724,8 @@
                         }, {});
                         const smoothedTop = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
                         
-                        document.getElementById('emotion-display').innerText = `AI EMOTION: ${smoothedTop.toUpperCase()}`;
+                        window.currentDisplayEmotion = smoothedTop;
+                        document.getElementById('emotion-display').innerText = smoothedTop.toUpperCase();
                     }
 
                     // Check for multi-person separately if needed, or stick to single face detection
