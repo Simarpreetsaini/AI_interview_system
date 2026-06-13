@@ -425,7 +425,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         resume_url = f"/{r_path}" if (isinstance(r_path, str) and os.path.exists(r_path)) else None  # type: ignore
         
         # Get all sessions for this user for the transcript
-        user_sessions = db.query(InterviewSession).filter(InterviewSession.username == u.username).all()
+        user_sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(u.username)).all()
         transcript = [{"q": s.question, "a": s.answer, "s": s.score, "v": s.video_url} for s in user_sessions]
 
         user_records[u.username] = {
@@ -490,7 +490,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
 @app.get("/api/get_result")
 async def get_result(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user = current_user
-    sessions = db.query(InterviewSession).filter(InterviewSession.username == user.username).all()
+    sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(user.username)).all()
     
     if not sessions:
         return {"success": False, "message": "No interview session found."}
@@ -532,14 +532,15 @@ async def update_access(req: AccessRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/delete_user")
 async def delete_user(req: dict, db: Session = Depends(get_db)):
+    username = req.get("username", "")
     username_clean = username.strip()
     user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
     if user:
         # Also delete sessions
-        db.query(InterviewSession).filter(InterviewSession.username == username_clean).delete()
+        db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(username_clean)).delete()
         db.delete(user)
         db.commit()
-        return {"success": True, "message": f"User {username} and all records deleted."}
+        return {"success": True, "message": f"User {username_clean} and all records deleted."}
     return {"success": False, "message": "User not found"}
 
 class ViolationRequest(BaseModel):
@@ -591,7 +592,7 @@ async def admin_action(req: AdminActionRequest, db: Session = Depends(get_db), c
     if user:
         if req.action == "delete":
             # Delete all interview records for this user to avoid foreign key constraints
-            db.query(InterviewSession).filter(InterviewSession.username == req.username).delete()
+            db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(req.username.strip())).delete()
             # Delete the user account
             db.delete(user)
         elif req.action in ["approve", "reject"]:

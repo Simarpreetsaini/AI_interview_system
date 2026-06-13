@@ -758,8 +758,10 @@
             const activeRecognition = window.recognition;
             activeRecognition.continuous = true;
             activeRecognition.interimResults = true;
+            activeRecognition.lang = 'en-US';
             
-            let finalTranscript = '';
+            let previousTranscript = '';
+            let sessionFinalTranscript = '';
             activeTranscript = '';
             document.getElementById('live-transcript-box').className = 'listening';
             document.getElementById('transcript-status').innerText = 'Listening for response...';
@@ -769,23 +771,28 @@
                 if (window.recognition !== activeRecognition) return;
                 if (isAISpeaking || !isAnswering) return; // Do not process results when AI is speaking or not answering
                 
+                let currentFinal = '';
                 let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                
+                for (let i = 0; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
+                        currentFinal += event.results[i][0].transcript;
                     } else {
                         interimTranscript += event.results[i][0].transcript;
                     }
                 }
-                activeTranscript = (finalTranscript + " " + interimTranscript).trim();
-                const currentText = finalTranscript + " " + interimTranscript;
+                
+                sessionFinalTranscript = currentFinal;
+                activeTranscript = (previousTranscript + " " + sessionFinalTranscript + " " + interimTranscript).trim();
+                const currentText = activeTranscript;
+                
                 const fallbackArea = document.getElementById('typing-fallback-area');
                 if (fallbackArea && document.getElementById('typing-container').style.display !== 'none') {
                     if (document.activeElement !== fallbackArea) {
                         fallbackArea.value = currentText;
                     }
                 } else {
-                    document.getElementById('last-transcription').innerHTML = `<span class="final">${finalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
+                    document.getElementById('last-transcription').innerHTML = `<span class="final">${previousTranscript} ${sessionFinalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
                 }
             };
 
@@ -813,6 +820,12 @@
 
             activeRecognition.onend = () => {
                 if (window.recognition !== activeRecognition) return;
+                
+                if (sessionFinalTranscript) {
+                    previousTranscript = (previousTranscript + " " + sessionFinalTranscript).trim();
+                    sessionFinalTranscript = '';
+                }
+                
                 if (isSimActive && isAnswering && qTimeLeft > 0) {
                     setTimeout(() => {
                         if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0) {
