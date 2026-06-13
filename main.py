@@ -368,6 +368,22 @@ async def analyze_answer_endpoint(
             import shutil
             shutil.copy(tmp_path, perm_path)
             
+            # Check for multiple speakers using pyannote.audio speaker diarization
+            try:
+                from modules.person_detector import detect_multiple_speakers
+                if detect_multiple_speakers(perm_path):
+                    timestamp_str = datetime.now().strftime("%H:%M:%S")
+                    violation_note = f"[{timestamp_str}] Multiple speakers detected in response (pyannote.audio)"
+                    user = db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
+                    if user:
+                        if user.integrity_notes:
+                            user.integrity_notes += f" | {violation_note}"
+                        else:
+                            user.integrity_notes = violation_note
+                        db.commit()
+            except Exception as pe:
+                print(f"pyannote.audio speaker check failed/skipped: {pe}")
+            
             # Upload to cloud if available
             video_url = upload_file_to_storage(perm_path, answer_filename)
             

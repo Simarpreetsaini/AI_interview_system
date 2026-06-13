@@ -1,4 +1,8 @@
 {
-  "cleanUrls": true,
-  "framework": null
+  "experimentalServices": {
+    "ai-interview-system": {
+      "type": "web",
+      "routePrefix": "/"
+    }
+  }
 }

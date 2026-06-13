@@ -41,10 +41,57 @@ def analyze_answer_offline(question, answer, emotion):
 
 def analyze_answer(question, answer, emotion):
     """
-    Evaluates candidate response using GPT-4o or local Llama 3 (via Ollama).
+    Evaluates candidate response using Gemini (primary), GPT-4o, or local Llama 3 (via Ollama).
     Falls back to offline TF-IDF if no API keys / endpoints are configured.
     """
-    # 1. GPT-4o Integration
+    # 1. Gemini API Integration (Primary)
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if gemini_key:
+        try:
+            import urllib.request
+            
+            prompt = (
+                "You are an expert technical interviewer evaluating a candidate's response.\n"
+                f"Question: {question}\n"
+                f"Candidate's Answer: {answer}\n"
+                f"Candidate's Primary Emotion: {emotion}\n\n"
+                "Evaluate the answer for accuracy, technical depth, and overall quality. "
+                "Include the emotion influence (e.g. nervousness, confidence) in your assessment.\n"
+                "You MUST reply ONLY with a valid JSON object matching this schema:\n"
+                "{\n"
+                "  \"score\": <integer/float between 0 and 100>,\n"
+                "  \"feedback\": \"<short feedback string>\"\n"
+                "}"
+            )
+            
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "temperature": 0.3
+                }
+            }
+            
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            with urllib.request.urlopen(req, timeout=15) as response:
+                res = json.loads(response.read().decode('utf-8'))
+                candidate_text = res["candidates"][0]["content"]["parts"][0]["text"]
+                data = json.loads(candidate_text)
+                score = float(data.get("score", 50.0))
+                print(f"Gemini Evaluation Score: {score}. Feedback: {data.get('feedback')}")
+                return round(max(0.0, min(100.0, score)), 2)
+        except Exception as e:
+            print(f"Gemini API evaluation failed: {e}. Trying other fallback methods...")
+
+    # 2. GPT-4o Integration
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key:
         try:

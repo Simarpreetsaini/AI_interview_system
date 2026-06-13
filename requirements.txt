@@ -24,3 +24,5 @@ faster-whisper
 faiss-cpu
 sentence-transformers
 openai
+google-generativeai
+pyannote.audio
