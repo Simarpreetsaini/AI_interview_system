@@ -2,6 +2,7 @@
 
 A state-of-the-art AI-driven interview room simulator that leverages face analysis, audio transcription (Whisper), and semantic response scoring to provide candidates with mock interviews and administrators with detailed performance and integrity dashboards.
 
+🔗 Live Demo: https://ai-interview-system-chi-murex.vercel.app/
 ---
 
 ## 🛠️ Technology Stack
