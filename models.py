@@ -14,6 +14,9 @@ class User(Base):
     experience = Column(String, nullable=True)   # Experience level
     email = Column(String, nullable=True)        # Extracted email
     phone = Column(String, nullable=True)        # Extracted phone number
+    domain = Column(String, nullable=True)       # Candidate domain
+    source = Column(String, nullable=True)       # Resume/Interview source
+    skills = Column(String, nullable=True)       # Extracted candidate skills
     integrity_notes = Column(String, default="") # Log of cheating incidents
     
     sessions = relationship("InterviewSession", back_populates="user")

@@ -66,6 +66,11 @@ def migrate_db():
                     conn.commit()
                     print("SUCCESS: Added column: users.source")
 
+                if "skills" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN skills TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.skills")
+
                 if "integrity_notes" not in existing_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN integrity_notes TEXT"))
                     conn.commit()
@@ -286,6 +291,7 @@ async def upload_resume(
             user.experience = experience
             user.domain = domain
             user.source = source
+            user.skills = ", ".join(skills) if isinstance(skills, list) else str(skills)
             
             email_val = parsed.get("email")
             if isinstance(email_val, str):
@@ -435,6 +441,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             "experience": u.experience or "N/A",
             "domain": u.domain or "N/A",
             "source": u.source or "N/A",
+            "skills": u.skills or "",
             "video_url": video_url,
             "resume_path": r_path if (isinstance(r_path, str) and os.path.exists(r_path)) else None,  # type: ignore
             "email": u.email or "N/A",
