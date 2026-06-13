@@ -328,10 +328,61 @@
     </div>
 
     <script>
+        const RENDER_BASE = 'https://ai-interview-system-remk.onrender.com';
         function getApiUrl(path) {
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const base = isLocal ? '' : 'https://ai-interview-system-remk.onrender.com';
+            const base = isLocal ? '' : RENDER_BASE;
             return base + path;
+        }
+
+        // Wake up Render backend on page load (free tier sleeps after 15min)
+        async function pingBackend() {
+            try {
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                if (!isLocal) {
+                    showServerWakeupBanner();
+                    await fetch(RENDER_BASE + '/api/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({username: '__ping__', password: '__ping__'}),
+                        signal: AbortSignal.timeout(30000)
+                    }).catch(() => {});
+                    hideServerWakeupBanner();
+                }
+            } catch(e) { hideServerWakeupBanner(); }
+        }
+
+        function showServerWakeupBanner() {
+            if (document.getElementById('server-wakeup-banner')) return;
+            const banner = document.createElement('div');
+            banner.id = 'server-wakeup-banner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:rgba(245,158,11,0.95);color:#000;font-weight:700;font-size:0.8rem;padding:10px 20px;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px;';
+            banner.innerHTML = '<div style="width:14px;height:14px;border:2px solid #000;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div> ⚡ Backend server is waking up (free tier). Please wait 20–30 seconds...';
+            document.body.prepend(banner);
+        }
+
+        function hideServerWakeupBanner() {
+            const b = document.getElementById('server-wakeup-banner');
+            if (b) b.remove();
+        }
+
+        // Fetch with retry (for Render cold starts)
+        async function fetchWithRetry(url, options, maxRetries = 3, timeoutMs = 45000) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    const res = await fetch(url, { ...options, signal: controller.signal });
+                    clearTimeout(timer);
+                    return res;
+                } catch (err) {
+                    console.warn(`Fetch attempt ${attempt}/${maxRetries} failed:`, err.message);
+                    if (attempt === maxRetries) throw err;
+                    // Show wakeup banner on retry
+                    showServerWakeupBanner();
+                    await new Promise(r => setTimeout(r, 3000 * attempt));
+                }
+            }
         }
 
         let questions = [];
@@ -384,10 +435,13 @@
                 window.location.href = '/';
                 return;
             }
+
+            // Ping Render backend in background to wake it up early
+            pingBackend();
             
             // Check candidate status and interview presence
             try {
-                const res = await fetch(getApiUrl('/api/get_result'), {
+                const res = await fetchWithRetry(getApiUrl('/api/get_result'), {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -406,8 +460,6 @@
             
             // Start background calibration of FaceAPI models
             loadFaceAPIModels();
-            
-
         };
 
         async function goToPhase2() {
@@ -1001,17 +1053,31 @@
             formData.append('question', questionText);
             formData.append('answer', text || "No response captured.");
             formData.append('emotion', emotion || "neutral");
-            if (videoBlob) {
+            // Only attach video if it is a reasonable size (< 15MB) to avoid timeout on slow connections
+            if (videoBlob && videoBlob.size < 15 * 1024 * 1024) {
                 formData.append('video', videoBlob, 'answer.webm');
             }
 
-            // We send it to the endpoint that handles scoring and DB saving
-            const res = await fetch(getApiUrl('/api/process_audio'), {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
-                body: formData
-            });
-            return await res.json();
+            try {
+                // Use fetchWithRetry: 3 attempts, 60s timeout each (Render cold start can take 30s)
+                const res = await fetchWithRetry(
+                    getApiUrl('/api/process_audio'),
+                    {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+                        body: formData
+                    },
+                    3,   // max retries
+                    60000 // 60 second timeout per attempt
+                );
+                hideServerWakeupBanner();
+                return await res.json();
+            } catch (err) {
+                console.error('analyzeAnswer failed after retries:', err);
+                hideServerWakeupBanner();
+                // Return a fallback so pendingAnalysisCount still decrements
+                return { success: false, score: 0, transcription: text || '' };
+            }
         }
 
         let audioContext, analyser, microphone, javascriptNode;
