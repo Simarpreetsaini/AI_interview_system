@@ -120,6 +120,20 @@ os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
 
 app = FastAPI(title="Advanced AI Interview System")
 
+import traceback
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "message": str(exc),
+            "traceback": traceback.format_exc()
+        }
+    )
+
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
@@ -129,9 +143,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SECRET_KEY = "advanced-ai-interview-system-secure-32-byte-key-2026"
+SECRET_KEY = os.getenv("SECRET_KEY", "advanced-ai-interview-system-secure-32-byte-key-2026")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
@@ -298,6 +312,21 @@ async def upload_resume(
     with open(resume_path, "wb") as f:
         f.write(file_bytes)
 
+    # Upload to Cloudinary if configured for persistent storage in production
+    if os.getenv("CLOUDINARY_CLOUD_NAME"):
+        try:
+            import cloudinary.uploader
+            cloudinary_resp = cloudinary.uploader.upload(
+                resume_path,
+                resource_type="auto",
+                public_id=resume_filename.split('.')[0]
+            )
+            if cloudinary_resp and "secure_url" in cloudinary_resp:
+                resume_path = cloudinary_resp["secure_url"]
+                print(f"INFO: Uploaded resume to Cloudinary: {resume_path}")
+        except Exception as e:
+            print(f"Cloudinary resume upload error: {e}")
+
     # Reset file pointer for parser (use BytesIO)
     from io import BytesIO
     class FakeUpload:
@@ -445,20 +474,38 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             video_url = f"/static/videos/{object_name}" if os.path.exists(f"static/videos/{object_name}") else None
             
         r_path = u.resume_path
-        resume_url = f"/{r_path}" if (isinstance(r_path, str) and os.path.exists(r_path)) else None  # type: ignore
+        if isinstance(r_path, str) and r_path.strip():
+            # Cloudinary/absolute URLs: return as-is
+            if r_path.startswith("http://") or r_path.startswith("https://"):
+                resume_url = r_path
+            elif r_path.startswith("/"):
+                resume_url = r_path
+            else:
+                resume_url = f"/{r_path}"
+        else:
+            resume_url = None
         
         # Get all sessions for this user for the transcript
         user_sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(u.username)).all()
-        transcript = [{"q": s.question, "a": s.answer, "s": s.score, "v": s.video_url} for s in user_sessions]
+        transcript = [{"q": s.question or "", "a": s.answer or "No answer recorded.", "s": s.score or 0, "v": s.video_url} for s in user_sessions]
+
+        # Compute date/time from first session if sessions exist
+        first_session_date = "Not Started"
+        first_session_time = ""
+        if user_sessions:
+            dt_str = user_sessions[0].date or ""
+            dt_parts = dt_str.strip().split(" ")
+            first_session_date = dt_parts[0] if dt_parts else "N/A"
+            first_session_time = dt_parts[1] if len(dt_parts) > 1 else ""
 
         user_records[u.username.lower()] = {
             "username": u.username,
             "candidate": u.username,
-            "date": "Not Started",
-            "time": "",
+            "date": first_session_date,
+            "time": first_session_time,
             "scores": [],
             "emotions": [],
-            "integrity": "N/A",
+            "integrity": "N/A" if not user_sessions else "Secure",
             "status": u.status,
             "access": u.access,
             "experience": u.experience or "N/A",
@@ -466,7 +513,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             "source": u.source or "N/A",
             "skills": u.skills or "",
             "video_url": video_url,
-            "resume_path": r_path if (isinstance(r_path, str) and os.path.exists(r_path)) else None,  # type: ignore
+            "resume_path": resume_url,
             "email": u.email or "N/A",
             "phone": u.phone or "N/A",
             "integrity_notes": u.integrity_notes or "",
@@ -477,15 +524,8 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
     for s in sessions:
         u_lower = s.username.lower() if s.username else ""
         if u_lower in user_records:
-            # Overwrite 'Not Started' with actual date/time
-            if user_records[u_lower]["date"] == "Not Started":
-                dt_parts = s.date.split(" ")
-                user_records[u_lower]["date"] = dt_parts[0] if len(dt_parts) > 0 else s.date
-                user_records[u_lower]["time"] = dt_parts[1] if len(dt_parts) > 1 else ""
-                user_records[u_lower]["integrity"] = "Secure" # Reset from N/A to default Secure
-            
-            user_records[u_lower]["scores"].append(cast(float, s.score))
-            user_records[u_lower]["emotions"].append(s.emotion)
+            user_records[u_lower]["scores"].append(cast(float, s.score or 0))
+            user_records[u_lower]["emotions"].append(s.emotion or "neutral")
             
             # Use actual violation notes to determine integrity
             if user_records[u_lower]["integrity_notes"]:

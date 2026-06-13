@@ -107,7 +107,7 @@
         <div id="live-clock" style="color: var(--primary-cyan); font-weight: 800; font-size: 0.9rem; letter-spacing: 1px;"></div>
         <button class="btn-outline btn-logout" onclick="logout()">Sign Out</button>
     </div>
-    <div class="container" style="max-width: 1200px; margin: 0 auto;">
+    <div class="container" style="max-width: 1400px; width: 95%; margin: 0 auto;">
         
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
             <div class="box" style="text-align: center; border-top: 4px solid var(--primary-cyan);">
@@ -129,8 +129,9 @@
         </div>
 
         <div class="box" style="margin-bottom: 2rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
                 <div class="subtitle">Candidate Records</div>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                     <select id="filter-exp" onchange="filterTable()" style="padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                         <option value="">All Experience</option>
                         <option value="fresher">Fresher</option>
@@ -144,24 +145,27 @@
                     </select>
                     <input type="text" id="table-search" placeholder="Search..." onkeyup="filterTable()" style="width: 200px; padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <button onclick="exportToCSV()" class="btn-outline">Export CSV</button>
+                </div>
             </div>
-            <table style="width: 100%; text-align: left;">
-                <thead style="background: rgba(255,255,255,0.02); text-transform: uppercase; font-size: 0.6rem; letter-spacing: 1px; color: var(--text-muted);">
-                    <tr>
-                        <th style="padding: 15px; text-align: center; width: 60px;">Rank</th>
-                        <th style="padding: 15px; width: 140px;">Schedule</th>
-                        <th style="padding: 15px; width: 180px;">Candidate</th>
-                        <th style="padding: 15px;">Contact & Outreach</th>
-                        <th style="padding: 15px; text-align: center; width: 100px;">Resume</th>
-                        <th style="padding: 15px; width: 130px;">Integrity</th>
-                        <th style="padding: 15px; width: 100px;">Score</th>
-                        <th style="padding: 15px; text-align: center; width: 130px;">Status</th>
-                        <th style="padding: 15px; text-align: center; width: 120px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="records-table">
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table style="width: 100%; text-align: left; min-width: 1050px; border-collapse: collapse;">
+                    <thead style="background: rgba(255,255,255,0.02); text-transform: uppercase; font-size: 0.6rem; letter-spacing: 1px; color: var(--text-muted);">
+                        <tr>
+                            <th style="padding: 12px 10px; text-align: center; width: 60px;">Rank</th>
+                            <th style="padding: 12px 10px; width: 110px;">Schedule</th>
+                            <th style="padding: 12px 10px; width: 150px;">Candidate</th>
+                            <th style="padding: 12px 10px; width: 200px;">Contact & Outreach</th>
+                            <th style="padding: 12px 10px; text-align: center; width: 90px;">Resume</th>
+                            <th style="padding: 12px 10px; width: 110px;">Integrity</th>
+                            <th style="padding: 12px 10px; width: 80px;">Score</th>
+                            <th style="padding: 12px 10px; text-align: center; width: 100px;">Status</th>
+                            <th style="padding: 12px 10px; text-align: center; width: 100px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-table">
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="grid-2" style="gap: 2.5rem; margin-bottom: 4rem;">
@@ -191,7 +195,12 @@
 
     <script>
         function getApiUrl(path) {
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isLocal = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname.startsWith('192.168.') || 
+                            window.location.hostname.startsWith('10.') || 
+                            window.location.hostname.startsWith('172.') || 
+                            window.location.port === '8000';
             const base = isLocal ? '' : 'https://ai-interview-system-remk.onrender.com';
             return base + path;
         }
@@ -264,20 +273,20 @@
                 if(record.status === 'Rejected') statusClass = 'pill-rejected';
 
                 tr.innerHTML = `
-                    <td style="padding: 20px 15px; text-align: center; font-weight: 800; color: var(--primary-cyan); font-size: 1rem; opacity: 0.4;">${index + 1}</td>
-                    <td style="padding: 20px 15px;">
+                    <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: var(--primary-cyan); font-size: 1rem; opacity: 0.4;">${index + 1}</td>
+                    <td style="padding: 12px 10px;">
                         <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">${record.date}</div>
                         <div style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">at ${record.time || '--:--'}</div>
                     </td>
-                    <td style="padding: 20px 15px;">
+                    <td style="padding: 12px 10px;">
                         <div style="font-weight: 800; color: #fff; font-size: 1rem; letter-spacing: -0.5px;">${record.candidate}</div>
                         <div style="font-size: 0.75rem; color: var(--primary-cyan); font-weight: 700; text-transform: uppercase; margin-top: 4px;">
                             ${record.experience}
                         </div>
                     </td>
-                    <td style="padding: 20px 15px;">
+                    <td style="padding: 12px 10px;">
                         <div style="display:flex; flex-direction:column; gap: 6px;">
-                            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=${record.email}" target="_blank" style="color: #fff; text-decoration: none; font-size: 0.75rem; display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.03); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onmouseover="this.style.background='rgba(0,229,255,0.1)'; this.style.borderColor='rgba(0,229,255,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.03)'; this.style.borderColor='rgba(255,255,255,0.05)';" title="${record.email}">
+                            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=${record.email}" target="_blank" style="color: #fff; text-decoration: none; font-size: 0.75rem; display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.03); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onmouseover="this.style.background='rgba(0,229,255,0.1)'; this.style.borderColor='rgba(0,229,255,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.03)'; this.style.borderColor='rgba(255,255,255,0.05)';" title="${record.email}">
                                 <span style="font-size: 0.8rem;">📧</span> <span>${record.email}</span>
                             </a>
                             <a href="https://wa.me/${(record.phone || '').replace(/\D/g, '')}" target="_blank" style="color: #22c55e; text-decoration: none; font-size: 0.75rem; display:flex; align-items:center; gap:8px; background: rgba(34,197,94,0.05); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(34,197,94,0.1); transition: all 0.3s; width: max-content;" onmouseover="this.style.background='rgba(34,197,94,0.15)';" onmouseout="this.style.background='rgba(34,197,94,0.05)';" title="Chat on WhatsApp">
@@ -285,22 +294,22 @@
                             </a>
                         </div>
                     </td>
-                    <td style="padding: 20px 15px; text-align: center;">
-                        ${record.resume_path ? `<a href="/${record.resume_path}" target="_blank" style="color: var(--primary-cyan); text-decoration:none; font-size: 0.8rem; font-weight: 700; border-bottom: 1px dashed rgba(0,229,255,0.3);">📄 VIEW PDF</a>` : '<span style="color:rgba(255,255,255,0.1); font-size: 0.75rem;">NO FILE</span>'}
+                    <td style="padding: 12px 10px; text-align: center;">
+                        ${record.resume_path ? `<a href="${record.resume_path.startsWith('http') ? record.resume_path : '/' + record.resume_path.replace(/^\//, '')}" target="_blank" style="color: var(--primary-cyan); text-decoration:none; font-size: 0.8rem; font-weight: 700; border-bottom: 1px dashed rgba(0,229,255,0.3);">📄 VIEW PDF</a>` : '<span style="color:rgba(255,255,255,0.1); font-size: 0.75rem;">NO FILE</span>'}
                     </td>
-                    <td style="padding: 20px 15px;">
+                    <td style="padding: 12px 10px;">
                         <span class="integrity-pill ${integrityClass}">${integrityIcon} ${record.integrity.toUpperCase()}</span>
                     </td>
-                    <td style="padding: 20px 15px;">
+                    <td style="padding: 12px 10px;">
                         <div style="font-weight: 800; font-size: 1.1rem; color: ${record.score >= 70 ? '#22c55e' : (record.score >= 40 ? '#f59e0b' : '#ef4444')};">${record.score}%</div>
                         <div style="width: 50px; height: 3px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 6px; overflow:hidden;">
                             <div style="width: ${record.score}%; height: 100%; background: ${record.score >= 70 ? '#22c55e' : (record.score >= 40 ? '#f59e0b' : '#ef4444')};"></div>
                         </div>
                     </td>
-                    <td style="padding: 20px 15px; text-align: center;">
+                    <td style="padding: 12px 10px; text-align: center;">
                         <span class="status-pill ${statusClass}">${record.status}</span>
                     </td>
-                    <td style="padding: 20px 15px; text-align: center;">
+                    <td style="padding: 12px 10px; text-align: center;">
                         <button class="dossier-btn" onclick="openDossier(${index})">DOSSIER 👁️</button>
                     </td>
                 `;

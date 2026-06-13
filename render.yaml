@@ -9,12 +9,14 @@ services:
           name: ai-interview-db
           property: connectionString
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
 
 databases:

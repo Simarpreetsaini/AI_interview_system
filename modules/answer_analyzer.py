@@ -8,32 +8,45 @@ def analyze_answer_offline(question, answer, emotion):
     if not answer or len(answer.strip()) < 5:
         return 0.0
 
-    vectorizer = TfidfVectorizer()
+    answer_stripped = answer.strip()
+    word_count = len(answer_stripped.split())
+    
+    vectorizer = TfidfVectorizer(stop_words='english')
 
     try:
-        vectors = vectorizer.fit_transform([question, answer])
+        vectors = vectorizer.fit_transform([question, answer_stripped])
         similarity = cosine_similarity(vectors[0], vectors[1])[0][0]
     except:
         similarity = 0.1
 
-    base_score = similarity * 100
+    # Base similarity score (0-70 range based on cosine similarity)
+    base_score = similarity * 70
+    
+    # Word count bonus: reward longer, more detailed answers (up to 20 bonus points)
+    # 5 words = 5pts, 10 words = 10pts, 20+ words = 20pts (capped)
+    word_bonus = min(20, word_count * 1.0)
+    
+    # Ensure a minimum baseline: any answer with 5+ words earns at least 20%
+    minimum_score = 20.0 if word_count >= 5 else 10.0
+    
+    base_score = max(minimum_score, base_score + word_bonus)
 
     # Emotion-based score modifiers
     emotion_bonuses = {
         'happy': 5,
         'interest': 8,
         'confidence': 10,
-        'fear': -7,
-        'anger': -5,
-        'sad': -3,
-        'neutral': 2,
+        'fear': -5,
+        'anger': -3,
+        'sad': -2,
+        'neutral': 3,
         'surprise': 3,
-        'thinking': 2,
-        'nervous': -5,
-        'disgust': -10
+        'thinking': 4,
+        'nervous': -3,
+        'disgust': -8
     }
 
-    bonus = emotion_bonuses.get(emotion.lower(), 0)
+    bonus = emotion_bonuses.get(emotion.lower() if emotion else 'neutral', 0)
     final_score = base_score + bonus
     final_score = max(0, min(100, final_score))
 

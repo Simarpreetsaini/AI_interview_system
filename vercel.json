@@ -4,6 +4,14 @@
     {
       "source": "/api/:path*",
       "destination": "https://ai-interview-system-remk.onrender.com/api/:path*"
+    },
+    {
+      "source": "/static/resumes/:path*",
+      "destination": "https://ai-interview-system-remk.onrender.com/static/resumes/:path*"
+    },
+    {
+      "source": "/static/videos/:path*",
+      "destination": "https://ai-interview-system-remk.onrender.com/static/videos/:path*"
     }
   ]
 }
