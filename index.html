@@ -234,7 +234,7 @@
 
                                 <div class="box">
                                     <h3 id="result-title" style="margin-bottom: 1rem;">Evaluation Report</h3>
-                                    <div id="result-message" class="message-box" style="padding: 0; background: none; font-size: 0.9rem;">
+                                    <div id="result-message" class="message-box" style="padding: 0; background: none; font-size: 0.9rem; white-space: normal;">
                                         Parsing simulation logs...
                                     </div>
                                 </div>
@@ -580,7 +580,7 @@
                         resultBadge.innerText = "Accepted";
                         resultBadge.className = "status-badge status-pass";
                         
-                        const passMsg = passMessages[Math.floor(Math.random() * passMessages.length)];
+                        const passMsg = passMessages[Math.floor(Math.random() * passMessages.length)].replace(/\n/g, '<br>');
                         resultMessage.innerHTML = `
                             <div style="text-align: center; padding: 0.5rem;">
                                 <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎉</div>
@@ -591,7 +591,7 @@
                                 <div style="background: rgba(34, 197, 94, 0.05); padding: 1rem; border-radius: 16px; border: 1px solid rgba(34, 197, 94, 0.2); text-align: left;">
                                     <div style="color: #22c55e; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 2px;">🚀 Next Steps</div>
                                     <p style="font-size: 0.85rem; color: #fff; line-height: 1.4;">
-                                        Our onboarding team will contact you via email shortly to discuss final formalities.
+                                        Our onboarding team will contact you via email shortly to discuss for next rounds.
                                     </p>
                                 </div>
                             </div>

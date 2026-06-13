@@ -63,14 +63,19 @@ def parse_resume(file):
     loc_match = re.search(r'(?i)(address|location|city|town|village)[\s:]*([A-Za-z0-9\s,]+)', text)
     if loc_match:
         location = loc_match.group(2).split('\n')[0].strip()
+        # Remove name from location if it was captured
+        if name and name != "Unknown Candidate" and location:
+            location = re.sub(re.escape(name), '', location, flags=re.IGNORECASE)
+            location = re.sub(r'^[,\s\-\:]+', '', location)
+            location = re.sub(r'[,\s\-\:]+$', '', location).strip()
 
     if location == "N/A" or len(location) < 3:
         # Search in the first 15 lines (which usually contain contact/header info)
         header_text = "\n".join(lines[:15])
         
-        # Look for pattern: City, State or City, Country or known cities/states
+        # Look for pattern: City, State or City, Country or known cities/states (excluding line breaks)
         loc_patterns = [
-            r'\b([A-Za-z\s]{3,30}),\s*(Punjab|Haryana|Himachal\s*Pradesh|Uttar\s*Pradesh|Uttarakhand|Maharashtra|Karnataka|Tamil\s*Nadu|Telangana|Andhra\s*Pradesh|Kerala|West\s*Bengal|Gujarat|Rajasthan|Bihar|Jharkhand|Odisha|Assam|Delhi|New\s*Delhi|India|USA|United\s*States|Canada|UK|United\s*Kingdom)\b',
+            r'\b([A-Za-z\t ]{3,30}),\s*(Punjab|Haryana|Himachal\s*Pradesh|Uttar\s*Pradesh|Uttarakhand|Maharashtra|Karnataka|Tamil\s*Nadu|Telangana|Andhra\s*Pradesh|Kerala|West\s*Bengal|Gujarat|Rajasthan|Bihar|Jharkhand|Odisha|Assam|Delhi|New\s*Delhi|India|USA|United\s*States|Canada|UK|United\s*Kingdom)\b',
             r'\b(Chandigarh|Mohali|Panchkula|Delhi|New\s*Delhi|Mumbai|Bangalore|Bengaluru|Pune|Hyderabad|Chennai|Kolkata|Noida|Gurugram|Gurgaon|Ahmedabad|Jaipur|Ludhiana|Amritsar|Jalandhar|Patiala|Bathinda|Shimla|Kochi)\b'
         ]
         
@@ -78,6 +83,11 @@ def parse_resume(file):
             match = re.search(pattern, header_text, re.IGNORECASE)
             if match:
                 location = match.group(0).strip()
+                # Remove name from location if it was captured
+                if name and name != "Unknown Candidate":
+                    location = re.sub(re.escape(name), '', location, flags=re.IGNORECASE)
+                    location = re.sub(r'^[,\s\-\:]+', '', location)
+                    location = re.sub(r'[,\s\-\:]+$', '', location).strip()
                 break
 
     # Qualifications: Improved extraction to capture full degree name
