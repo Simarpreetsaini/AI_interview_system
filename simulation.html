@@ -1051,12 +1051,34 @@
                         if (!results || !results.faceLandmarks || results.faceLandmarks.length === 0) {
                             triggerWarning('face');
                         } else {
-                            // 1. Check for multi-person
+                            // 1. Check for multi-person (Multiple faces detected)
                             if (results.faceLandmarks.length > 1) {
                                 triggerWarning('multi-person');
                             }
                             
-                            // 2. Extract blendshapes for the first face detected
+                            // 2. Gaze / Look Away check using Face Mesh transformation matrix
+                            if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
+                                const matrixObj = results.facialTransformationMatrixes[0];
+                                const matrix = matrixObj.data || matrixObj; // Handle potential formats
+                                if (matrix && matrix.length >= 16) {
+                                    const pitch = Math.asin(-matrix[6]);
+                                    const yaw = Math.atan2(matrix[2], matrix[10]);
+                                    
+                                    const pitchDeg = pitch * (180 / Math.PI);
+                                    const yawDeg = yaw * (180 / Math.PI);
+                                    
+                                    // If candidate turns head left/right (> 22 deg) or up/down (> 18 deg), trigger look-away warning
+                                    if (Math.abs(yawDeg) > 22 || Math.abs(pitchDeg) > 18) {
+                                        const now = Date.now();
+                                        if (!window.lastLookAwayWarningTime || (now - window.lastLookAwayWarningTime > 3000)) {
+                                            window.lastLookAwayWarningTime = now;
+                                            triggerWarning('look-away');
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 3. Extract blendshapes for the first face detected
                             if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
                                 const blendshapes = results.faceBlendshapes[0].categories;
                                 const shapes = {};
@@ -1173,6 +1195,9 @@
             } else if (type === 'noise') {
                 totalViolations++;
                 note = "High Background Noise";
+            } else if (type === 'look-away') {
+                totalViolations++;
+                note = "Looking Away from Screen";
             } else {
                 totalViolations++;
                 note = "Face Out of View";
