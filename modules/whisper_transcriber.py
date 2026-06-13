@@ -4,13 +4,24 @@ import json
 import wave
 import subprocess
 import tempfile
-from vosk import Model, KaldiRecognizer
+
+vosk_available = False
+try:
+    from vosk import Model, KaldiRecognizer
+    vosk_available = True
+except ImportError:
+    print("WARNING: Vosk python package is not installed. STT transcription fallback will be used.")
 
 model = None
 
 def load_model():
     global model
     if model is not None:
+        return
+        
+    if not vosk_available:
+        print("Vosk is not installed in this environment. Cannot load Vosk model.")
+        model = "fallback"
         return
         
     model_name = "vosk-model-small-en-us-0.15"
