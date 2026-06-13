@@ -29,6 +29,12 @@ def load_model():
             model = "fallback"
 
 def transcribe_audio(path):
+    # Skip loading whisper on low-resource environments (like Render Free tier) to prevent OOM/CPU crash
+    is_low_mem = os.getenv("RENDER") == "true" or os.getenv("DISABLE_ML") == "1"
+    if is_low_mem:
+        print("INFO: Low memory/Render environment detected. Bypassing Whisper model loading to prevent OOM crash.")
+        return "No response captured."
+
     load_model()
     if model == "fallback":
         return "[Transcription Fallback: Whisper/Faster-Whisper not loaded]"
