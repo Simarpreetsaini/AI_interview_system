@@ -86,8 +86,8 @@ def retrieve_semantic_questions(skills, experience_level="fresher", domain=None,
         # Embed query text
         query_embedding = _model.encode([query_text], show_progress_bar=False)
         
-        # Retrieve twice the required count to allow random shuffling and deduplication
-        k = tech_count * 2
+        # Retrieve a much larger pool to ensure randomization while maintaining semantic relevance
+        k = min(40, len(_all_questions))
         distances, indices = _index.search(query_embedding, k)
         
         retrieved_tech_questions = []

@@ -325,3 +325,191 @@ input:focus {
     font-weight: 500;
     white-space: nowrap;
 }
+
+/* Responsive Split Portal Wrapper */
+.portal-wrapper {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2.5rem;
+    box-sizing: border-box;
+    z-index: 1;
+    position: relative;
+}
+
+.portal-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 4rem;
+    max-width: 1200px;
+    width: 100%;
+    margin: auto;
+    align-items: center;
+}
+
+/* Left Branding Panel */
+.portal-branding {
+    padding-right: 2.5rem;
+    text-align: left;
+}
+
+.branding-content {
+    max-width: 580px;
+}
+
+.logo-glow-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 2rem;
+}
+
+.branding-logo {
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    border: 2px solid var(--primary-cyan);
+    box-shadow: 0 0 35px rgba(0, 229, 255, 0.35);
+    object-fit: contain;
+    background-color: #000;
+}
+
+.branding-subtitle {
+    color: var(--primary-cyan);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 3.5px;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+}
+
+.branding-title {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #ffffff 40%, rgba(255, 255, 255, 0.7) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.branding-desc {
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+}
+
+.features-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.feature-item {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.feature-icon {
+    font-size: 1.5rem;
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.feature-item h4 {
+    font-size: 1.05rem;
+    color: #fff;
+    margin-bottom: 4px;
+    font-weight: 700;
+}
+
+.feature-item p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+/* Right Form Panel */
+.portal-form-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.portal-form-container .container {
+    padding: 0;
+    max-width: 450px;
+}
+
+/* Responsive Logo Handling */
+.mobile-only-logo {
+    display: none !important;
+}
+
+/* Responsive Overrides */
+@media (max-width: 992px) {
+    .portal-wrapper {
+        padding: 1.5rem;
+    }
+    
+    .portal-grid {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+        max-width: 550px;
+        padding-top: 2rem;
+    }
+    
+    .portal-branding {
+        padding-right: 0;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .logo-glow-wrapper {
+        margin: 0 auto 1.5rem auto;
+    }
+    
+    .branding-title {
+        font-size: 2.25rem;
+    }
+    
+    .features-list {
+        display: none; /* Hide complex details on smaller viewports to prioritize log-in */
+    }
+    
+    .branding-desc {
+        margin-bottom: 0.5rem;
+    }
+    
+    .mobile-only-logo {
+        display: block !important;
+    }
+}
+
+/* Results View Dynamic Grid Expansion */
+.portal-grid.results-active {
+    grid-template-columns: 1fr;
+    max-width: 800px;
+}
+.portal-grid.results-active .portal-branding {
+    display: none !important;
+}
+.portal-grid.results-active .portal-form-container .container {
+    max-width: 800px;
+}
+

@@ -141,7 +141,7 @@
 </head>
 <body class="simulation-layout">
     <div class="topbar">
-        <h1 style="display: flex; align-items: center; gap: 10px;"><img src="/static/images/logo.png" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--primary-cyan);" alt="Logo">Interview Room</h1>
+        <h1 style="display: flex; align-items: center; gap: 10px;"><img src="/static/images/logo.png" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--primary-cyan); object-fit: contain; background-color: #000;" alt="Logo">Interview Room</h1>
         <div class="subtitle" id="top-stage">PHASE 1: INITIALIZATION</div>
         <button class="btn-outline btn-logout" onclick="logout()">Exit Session</button>
     </div>
@@ -457,7 +457,12 @@
             isSimActive = false;
             try {
                 if(typeof timerInterval !== 'undefined') clearInterval(timerInterval);
-                if(typeof recognition !== 'undefined' && recognition) recognition.stop();
+                if(typeof recognition !== 'undefined' && recognition) {
+                    recognition.onend = null;
+                    recognition.onresult = null;
+                    recognition.onerror = null;
+                    try { recognition.abort(); } catch(e) {}
+                }
                 if(typeof fullSessionRecorder !== 'undefined' && fullSessionRecorder && fullSessionRecorder.state !== 'inactive') fullSessionRecorder.stop();
             } catch(e) { console.error("Error stopping session:", e); }
             
@@ -714,22 +719,38 @@
         }
 
         function startVoiceRecognition() {
+            if (window.recognition) {
+                window.recognition.onend = null;
+                window.recognition.onresult = null;
+                window.recognition.onerror = null;
+                try {
+                    window.recognition.abort();
+                } catch (e) {
+                    console.warn("Failed to abort previous SpeechRecognition instance:", e);
+                }
+                window.recognition = null;
+            }
+
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if(!SpeechRecognition) {
                 showToast("⚠️ Speech recognition not supported. Please type your response.");
                 showTypeFallback();
                 return;
             }
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
+            window.recognition = new SpeechRecognition();
+            const activeRecognition = window.recognition;
+            activeRecognition.continuous = true;
+            activeRecognition.interimResults = true;
             
             let finalTranscript = '';
             document.getElementById('live-transcript-box').className = 'listening';
             document.getElementById('transcript-status').innerText = 'Listening for response...';
             document.getElementById('last-transcription').innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below)</span>';
             
-            recognition.onresult = (event) => {
+            activeRecognition.onresult = (event) => {
+                if (window.recognition !== activeRecognition) return;
+                if (isAISpeaking || !isAnswering) return; // Do not process results when AI is speaking or not answering
+                
                 let interimTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
@@ -749,7 +770,8 @@
                 }
             };
 
-            recognition.onerror = (event) => {
+            activeRecognition.onerror = (event) => {
+                if (window.recognition !== activeRecognition) return;
                 console.error("Speech Recognition Error:", event.error);
                 if (event.error === 'not-allowed') {
                     showToast("⚠️ Microphone access blocked. Please type your response.");
@@ -757,25 +779,31 @@
                 }
             };
 
-            recognition.onend = () => {
+            const tryStart = () => {
+                try {
+                    activeRecognition.start();
+                } catch(e) {
+                    console.warn("SpeechRecognition start failed, retrying in 300ms...", e);
+                    setTimeout(() => {
+                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0) {
+                            tryStart();
+                        }
+                    }, 300);
+                }
+            };
+
+            activeRecognition.onend = () => {
+                if (window.recognition !== activeRecognition) return;
                 if (isSimActive && isAnswering && qTimeLeft > 0) {
                     setTimeout(() => {
-                        try {
-                            if (isSimActive && isAnswering && qTimeLeft > 0) {
-                                recognition.start();
-                            }
-                        } catch (err) {
-                            console.warn("SpeechRecognition restart failed:", err);
+                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0) {
+                            tryStart();
                         }
                     }, 100);
                 }
             };
             
-            try {
-                recognition.start();
-            } catch(e) {
-                console.error("Failed to start SpeechRecognition:", e);
-            }
+            tryStart();
         }
 
         function toggleTypingFallback() {
@@ -816,8 +844,11 @@
         }
 
         async function handleQuestionTimeout(transcript) {
-            if(recognition) {
-                try { recognition.stop(); } catch(e) {}
+            if(window.recognition) {
+                window.recognition.onend = null;
+                window.recognition.onresult = null;
+                window.recognition.onerror = null;
+                try { window.recognition.abort(); } catch(e) {}
             }
             
             const currentEmotion = window.currentDisplayEmotion || "neutral";
@@ -1074,7 +1105,12 @@
             try {
                 if(typeof timerInterval !== 'undefined') clearInterval(timerInterval);
                 if(typeof qTimerInterval !== 'undefined') clearInterval(qTimerInterval);
-                if(typeof recognition !== 'undefined' && recognition) recognition.stop();
+                if(typeof recognition !== 'undefined' && recognition) {
+                    recognition.onend = null;
+                    recognition.onresult = null;
+                    recognition.onerror = null;
+                    try { recognition.abort(); } catch(e) {}
+                }
             } catch(e) {}
             
             // Stop media stream tracks (webcam/mic)
@@ -1120,6 +1156,13 @@
             isSimActive = false;
             clearInterval(timerInterval);
             if(qTimerInterval) clearInterval(qTimerInterval);
+            
+            if(window.recognition) {
+                window.recognition.onend = null;
+                window.recognition.onresult = null;
+                window.recognition.onerror = null;
+                try { window.recognition.abort(); } catch(e) {}
+            }
             
             // Stop Webcam
             if (mediaStream) {

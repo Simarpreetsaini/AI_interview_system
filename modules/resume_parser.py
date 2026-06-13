@@ -59,33 +59,54 @@ def parse_resume(file):
     dob = dob_match.group(0) if dob_match else "Not provided"
 
     # Location (Town/Village): Look for keywords or just mock if not found
-    location = "Not provided"
+    location = "N/A"
     loc_match = re.search(r'(?i)(address|location|city|town|village)[\s:]*([A-Za-z0-9\s,]+)', text)
     if loc_match:
         location = loc_match.group(2).split('\n')[0].strip()
+
+    if location == "N/A" or len(location) < 3:
+        # Search in the first 15 lines (which usually contain contact/header info)
+        header_text = "\n".join(lines[:15])
+        
+        # Look for pattern: City, State or City, Country or known cities/states
+        loc_patterns = [
+            r'\b([A-Za-z\s]{3,30}),\s*(Punjab|Haryana|Himachal\s*Pradesh|Uttar\s*Pradesh|Uttarakhand|Maharashtra|Karnataka|Tamil\s*Nadu|Telangana|Andhra\s*Pradesh|Kerala|West\s*Bengal|Gujarat|Rajasthan|Bihar|Jharkhand|Odisha|Assam|Delhi|New\s*Delhi|India|USA|United\s*States|Canada|UK|United\s*Kingdom)\b',
+            r'\b(Chandigarh|Mohali|Panchkula|Delhi|New\s*Delhi|Mumbai|Bangalore|Bengaluru|Pune|Hyderabad|Chennai|Kolkata|Noida|Gurugram|Gurgaon|Ahmedabad|Jaipur|Ludhiana|Amritsar|Jalandhar|Patiala|Bathinda|Shimla|Kochi)\b'
+        ]
+        
+        for pattern in loc_patterns:
+            match = re.search(pattern, header_text, re.IGNORECASE)
+            if match:
+                location = match.group(0).strip()
+                break
 
     # Qualifications: Improved extraction to capture full degree name
     qualifications = []
     # Common degree patterns
     qual_patterns = [
-        r'Bachelor of [A-Za-z\s]+',
-        r'Master of [A-Za-z\s]+',
-        r'B\.Tech[A-Za-z\s\(\)]*',
-        r'M\.Tech[A-Za-z\s\(\)]*',
-        r'B\.Sc[A-Za-z\s\(\)]*',
-        r'M\.Sc[A-Za-z\s\(\)]*',
-        r'B\.E\.[A-Za-z\s\(\)]*',
-        r'BCA[A-Za-z\s\(\)]*',
-        r'MCA[A-Za-z\s\(\)]*',
-        r'PhD[A-Za-z\s\(\)]*'
+        # Bachelor/Master/Doctor of ... (e.g., Bachelor of Technology in Computer Science & Engineering)
+        r'\b(?:Bachelor|Master|Doctor|Associate)\s+of\s+[A-Za-z\s&\-\(\)\.]{3,80}\b',
+        # B.Tech/M.Tech (e.g., B.Tech in Computer Science and Engineering)
+        r'\b[BM]\.?\s*Tech(?:\.?\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?',
+        # B.Sc/M.Sc
+        r'\b[BM]\.?\s*Sc(?:\.?\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?',
+        # B.E/M.E
+        r'\b[BM]\.?\s*E\.?(?:\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?',
+        # BCA/MCA
+        r'\b[BM]\.?\s*C\.?\s*A\.?(?:\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?',
+        # BBA/MBA
+        r'\b[BM]\.?\s*B\.?\s*A\.?(?:\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?',
+        # Ph.D
+        r'\bPh\.?\s*D\.?(?:\s*(?:in|of)?\s+[A-Za-z\s&\-\(\)\.]{2,80})?'
     ]
     
-    for pattern in qual_patterns:
-        matches = re.findall(pattern, text, re.IGNORECASE)
-        for match in matches:
-            clean_match = match.strip()
-            if len(clean_match) > 3: # Avoid tiny false positives
-                qualifications.append(clean_match.title())
+    for line in lines:
+        for pattern in qual_patterns:
+            matches = re.findall(pattern, line, re.IGNORECASE)
+            for match in matches:
+                clean_match = match.strip()
+                if len(clean_match) > 3: # Avoid tiny false positives
+                    qualifications.append(clean_match.title())
     
     # Deduplicate and fallbacks
     qualifications = list(set(qualifications))

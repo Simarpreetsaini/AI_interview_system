@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
+import time
 import os
 import json
 import sys
@@ -98,7 +99,7 @@ migrate_db()
 # Create default admin user if it doesn't exist
 def init_admin():
     db = SessionLocal()
-    admin = db.query(User).filter(User.username == "admin").first()
+    admin = db.query(User).filter(func.lower(User.username) == "admin").first()
     if not admin:
         # Default admin credentials: admin / admin123
         new_admin = User(username="admin", password="admin123", status="Approved", access="grant")
@@ -122,7 +123,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = int(time.time() + ACCESS_TOKEN_EXPIRE_MINUTES * 60)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -140,7 +141,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.username == username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
     if user is None:
         raise credentials_exception
     return user
@@ -197,18 +198,20 @@ class RegisterRequest(BaseModel):
 # Auth endpoints
 @app.post("/api/register")
 async def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.username == req.username).first()
+    username_clean = req.username.strip()
+    existing_user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
     if existing_user:
         return {"success": False, "message": "User already exists"}
     
-    new_user = User(username=req.username, password=req.password, status="Pending", access="grant")
+    new_user = User(username=username_clean, password=req.password, status="Pending", access="grant")
     db.add(new_user)
     db.commit()
     return {"success": True, "message": "Registration successful"}
 
 @app.post("/api/login")
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
+    username_clean = req.username.strip()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
     if not user:
         return {"success": False, "message": "Username is not registered. Please create an account."}
         
@@ -277,7 +280,7 @@ async def upload_resume(
 
     # Update user's resume_path and experience in DB if user is logged in
     if username:
-        user = db.query(User).filter(User.username == username).first()
+        user = db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
         if user:
             user.resume_path = resume_path
             user.experience = experience
@@ -318,6 +321,15 @@ async def analyze_answer_endpoint(
 ):
     answer_text = answer or ""
     
+    # Determine if we have a valid browser-provided live transcription to skip Whisper
+    clean_ans = answer_text.strip().lower()
+    has_valid_frontend_transcript = (
+        clean_ans 
+        and clean_ans != "no response captured." 
+        and clean_ans != "answer could not be transcribed."
+        and len(clean_ans.split()) >= 1
+    )
+    
     # If audio is provided, transcribe it (overwrites the 'answer' text if present)
     video_url = None
     
@@ -330,30 +342,35 @@ async def analyze_answer_endpoint(
             tmp.write(await target_media.read())
             tmp_path = tmp.name
         
-        # Save as a permanent file for viewing
-        safe_username = username.replace("/", "_").replace("\\", "_").replace(" ", "_")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        answer_filename = f"{safe_username}_answer_{timestamp}.webm"
-        perm_path = f"static/videos/answers/{answer_filename}"
-        
-        import shutil
-        shutil.copy(tmp_path, perm_path)
-        
-        # Upload to cloud if available
-        video_url = upload_file_to_storage(perm_path, answer_filename)
-        
-        # If cloud upload worked and returned a URL, we can optionally delete local
-        if video_url.startswith("http") and os.path.exists(perm_path):
-             # Keep local for now as backup or delete if cloud is reliable
-             pass
-        else:
-             video_url = f"/{perm_path}"
-
         try:
-            from fastapi.concurrency import run_in_threadpool
-            answer_text = await run_in_threadpool(transcribe_audio, tmp_path)
-        except Exception as e:
-            answer_text = "Answer could not be transcribed."
+            # Save as a permanent file for viewing
+            safe_username = username.replace("/", "_").replace("\\", "_").replace(" ", "_")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            answer_filename = f"{safe_username}_answer_{timestamp}.webm"
+            perm_path = f"static/videos/answers/{answer_filename}"
+            
+            import shutil
+            shutil.copy(tmp_path, perm_path)
+            
+            # Upload to cloud if available
+            video_url = upload_file_to_storage(perm_path, answer_filename)
+            
+            # If cloud upload worked and returned a URL, we can optionally delete local
+            if video_url.startswith("http") and os.path.exists(perm_path):
+                 # Keep local for now as backup or delete if cloud is reliable
+                 pass
+            else:
+                 video_url = f"/{perm_path}"
+
+            # Only run backend Whisper transcription if we don't already have a valid live transcript from the frontend
+            if has_valid_frontend_transcript:
+                print(f"INFO: Using browser-provided live transcription for user {username}: '{answer_text}' (skipped backend Whisper)")
+            else:
+                try:
+                    from fastapi.concurrency import run_in_threadpool
+                    answer_text = await run_in_threadpool(transcribe_audio, tmp_path)
+                except Exception as e:
+                    answer_text = "Answer could not be transcribed."
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -499,7 +516,7 @@ class AccessRequest(BaseModel):
 
 @app.post("/api/update_access")
 async def update_access(req: AccessRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
     if user:
         user.access = req.access
         db.commit()
@@ -508,11 +525,11 @@ async def update_access(req: AccessRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/delete_user")
 async def delete_user(req: dict, db: Session = Depends(get_db)):
-    username = req.get("username")
-    user = db.query(User).filter(User.username == username).first()
+    username_clean = username.strip()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
     if user:
         # Also delete sessions
-        db.query(InterviewSession).filter(InterviewSession.username == username).delete()
+        db.query(InterviewSession).filter(InterviewSession.username == username_clean).delete()
         db.delete(user)
         db.commit()
         return {"success": True, "message": f"User {username} and all records deleted."}
@@ -524,7 +541,7 @@ class ViolationRequest(BaseModel):
 
 @app.post("/api/log_violation")
 async def log_violation(req: ViolationRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
     if user:
         timestamp = datetime.now().strftime("%H:%M:%S")
         new_note = f"[{timestamp}] {req.reason}"
@@ -562,7 +579,7 @@ class AdminActionRequest(BaseModel):
 
 @app.post("/api/admin_action")
 async def admin_action(req: AdminActionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user = db.query(User).filter(User.username == req.username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
     
     if user:
         if req.action == "delete":
@@ -585,7 +602,7 @@ class ResetVerifyRequest(BaseModel):
 
 @app.post("/api/verify_reset")
 async def verify_reset(req: ResetVerifyRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
     if not user:
         return {"success": False, "message": "Username not found."}
     
@@ -600,7 +617,7 @@ class ResetSubmitRequest(BaseModel):
 
 @app.post("/api/submit_reset")
 async def submit_reset(req: ResetSubmitRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
+    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
     if user:
         user.password = req.password
         db.commit()

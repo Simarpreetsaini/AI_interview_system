@@ -29,3 +29,7 @@ scratch/
 # IDEs
 .vscode/
 .idea/
+
+# User uploads & static media
+static/resumes/
+static/videos/
