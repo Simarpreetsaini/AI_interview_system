@@ -118,17 +118,7 @@ init_admin()
 ffmpeg_path = os.path.join(os.getcwd(), "ffmpeg-2026-03-12-git-9dc44b43b2-essentials_build", "bin")
 os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app = FastAPI(title="Advanced AI Interview System")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex="https?://.*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 SECRET_KEY = "advanced-ai-interview-system-secure-32-byte-key-2026"
 ALGORITHM = "HS256"
@@ -368,22 +358,6 @@ async def analyze_answer_endpoint(
             import shutil
             shutil.copy(tmp_path, perm_path)
             
-            # Check for multiple speakers using pyannote.audio speaker diarization
-            try:
-                from modules.person_detector import detect_multiple_speakers
-                if detect_multiple_speakers(perm_path):
-                    timestamp_str = datetime.now().strftime("%H:%M:%S")
-                    violation_note = f"[{timestamp_str}] Multiple speakers detected in response (pyannote.audio)"
-                    user = db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
-                    if user:
-                        if user.integrity_notes:
-                            user.integrity_notes += f" | {violation_note}"
-                        else:
-                            user.integrity_notes = violation_note
-                        db.commit()
-            except Exception as pe:
-                print(f"pyannote.audio speaker check failed/skipped: {pe}")
-            
             # Upload to cloud if available
             video_url = upload_file_to_storage(perm_path, answer_filename)
             
@@ -517,9 +491,6 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
 async def get_result(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user = current_user
     sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(user.username)).all()
-    
-    if not sessions:
-        return {"success": False, "message": "No interview session found."}
     
     avg_score = sum(cast(float, s.score) for s in sessions) / len(sessions) if sessions else 0.0
     

@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Interview Simulator</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <!-- MediaPipe Face Landmarker & RNNoise CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@shiguredo/noise-suppression@latest/dist/noise_suppression.js" crossorigin="anonymous"></script>
+    <script src="/static/js/face-api.min.js"></script>
     <style>
         .candidate-info-card { background: rgba(0,229,255,0.03); border: 1px solid rgba(0,229,255,0.1); padding: 1.5rem; border-radius: 16px; margin-top: 1.5rem; text-align: left;}
         .candidate-info-card p { margin: 12px 0; color: var(--text-main); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;}
@@ -320,10 +318,7 @@
     </div>
 
     <script>
-        const API_BASE = localStorage.getItem('api_base') || 
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                ? (window.location.port === '8000' ? '' : 'http://localhost:8000')
-                : 'https://ai-interview-system.onrender.com');
+
 
         let questions = [];
         let currentQIndex = -1;
@@ -346,30 +341,21 @@
         let statusLabel;
         let modelsLoaded = false;
         let modelsFailed = false;
-
-        let faceLandmarker = null;
+        let pendingAnalysisCount = 0;
+        let isFinished = false;
 
         async function loadFaceAPIModels() {
             try {
-                // Initialize MediaPipe Face Landmarker
-                const filesetResolver = await vision.FilesetResolver.forVisionTasks(
-                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
-                );
-                faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
-                    baseOptions: {
-                        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-                        delegate: "GPU"
-                    },
-                    runningMode: "VIDEO",
-                    outputFaceBlendshapes: true,
-                    numFaces: 2
-                });
-                console.log("MediaPipe Face Landmarker Loaded");
+                const modelUrl = '/static/models';
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl);
+                await faceapi.nets.faceExpressionNet.loadFromUri(modelUrl);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
+                console.log("FaceAPI Models Loaded");
                 modelsLoaded = true;
                 statusLabel = document.getElementById('transcript-status');
                 if (statusLabel) statusLabel.innerText = "MATRIX SYNCHRONIZED";
             } catch(e) {
-                console.error("MediaPipe Face Landmarker Load Error", e);
+                console.error("FaceAPI Load Error", e);
                 modelsFailed = true;
                 statusLabel = document.getElementById('transcript-status');
                 if (statusLabel) statusLabel.innerText = "MODEL SYNC ERROR (Using Fallback)";
@@ -387,7 +373,7 @@
             
             // Check candidate status and interview presence
             try {
-                const res = await fetch(API_BASE + '/api/get_result', {
+                const res = await fetch('/api/get_result', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -431,7 +417,7 @@
             formData.append("username", localStorage.getItem('username'));
 
             try {
-                const res = await fetch(API_BASE + '/api/upload_resume', { method: 'POST', body: formData });
+                const res = await fetch('/api/upload_resume', { method: 'POST', body: formData });
                 if (!res.ok) {
                     throw new Error(`HTTP error! status: ${res.status}`);
                 }
@@ -529,11 +515,6 @@
                     const webcamVideo = document.getElementById('webcam');
                     if (webcamVideo) {
                         webcamVideo.srcObject = mediaStream;
-                    }
-                    
-                    // Start Web Audio API + RNNoise background noise detection
-                    if (mediaStream.getAudioTracks().length > 0) {
-                        startNoiseDetection(mediaStream);
                     }
                     
                     // Init Recorder
@@ -911,13 +892,22 @@
             nextQuestion();
 
             // Process stopping and analysis asynchronously in the background
+            pendingAnalysisCount++;
             stopAnswerRecording().then(videoBlob => {
                 analyzeAnswer(currentQuestionText, transcript, currentEmotion, videoBlob)
-                    .catch(e => console.error("Answer analysis error:", e));
+                    .catch(e => console.error("Answer analysis error:", e))
+                    .finally(() => {
+                        pendingAnalysisCount--;
+                        checkAndShowFinish();
+                    });
             }).catch(e => {
                 console.error("Error stopping recording:", e);
                 analyzeAnswer(currentQuestionText, transcript, currentEmotion, null)
-                    .catch(ae => console.error("Answer analysis error without video:", ae));
+                    .catch(ae => console.error("Answer analysis error without video:", ae))
+                    .finally(() => {
+                        pendingAnalysisCount--;
+                        checkAndShowFinish();
+                    });
             });
         }
 
@@ -932,7 +922,7 @@
             }
 
             // We send it to the endpoint that handles scoring and DB saving
-            const res = await fetch(API_BASE + '/api/process_audio', {
+            const res = await fetch('/api/process_audio', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
                 body: formData
@@ -940,88 +930,8 @@
             return await res.json();
         }
 
-        let audioContext, microphone;
-        let rawVolume = 0;
-        let cleanVolume = 0;
-        let noiseLevel = 0;
-        let isNoiseMonitoring = false;
-
-        async function startNoiseDetection(stream) {
-            try {
-                const audioTrack = stream.getAudioTracks()[0];
-                if (!audioTrack) return;
-                
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                audioContext = new AudioContextClass();
-                
-                microphone = audioContext.createMediaStreamSource(stream);
-                
-                const rawAnalyser = audioContext.createAnalyser();
-                rawAnalyser.fftSize = 512;
-                microphone.connect(rawAnalyser);
-                
-                const assetsPath = "https://cdn.jsdelivr.net/npm/@shiguredo/noise-suppression@latest/dist";
-                const rnnoiseProcessor = new Shiguredo.NoiseSuppressionProcessor(assetsPath);
-                
-                const processedStream = await rnnoiseProcessor.startProcessing(stream);
-                const processedTrack = processedStream.getAudioTracks()[0];
-                
-                const cleanStream = new MediaStream([processedTrack]);
-                const cleanSource = audioContext.createMediaStreamSource(cleanStream);
-                const cleanAnalyser = audioContext.createAnalyser();
-                cleanAnalyser.fftSize = 512;
-                cleanSource.connect(cleanAnalyser);
-                
-                isNoiseMonitoring = true;
-                
-                const bufferLength = rawAnalyser.frequencyBinCount;
-                const rawData = new Uint8Array(bufferLength);
-                const cleanData = new Uint8Array(bufferLength);
-                
-                const noiseCheckInterval = setInterval(() => {
-                    if (!isSimActive || !isNoiseMonitoring) {
-                        clearInterval(noiseCheckInterval);
-                        try {
-                            rnnoiseProcessor.stopProcessing();
-                        } catch(e) {}
-                        return;
-                    }
-                    
-                    rawAnalyser.getByteTimeDomainData(rawData);
-                    cleanAnalyser.getByteTimeDomainData(cleanData);
-                    
-                    let rawSum = 0;
-                    for (let i = 0; i < bufferLength; i++) {
-                        const val = (rawData[i] - 128) / 128;
-                        rawSum += val * val;
-                    }
-                    rawVolume = Math.sqrt(rawSum / bufferLength);
-                    
-                    let cleanSum = 0;
-                    for (let i = 0; i < bufferLength; i++) {
-                        const val = (cleanData[i] - 128) / 128;
-                        cleanSum += val * val;
-                    }
-                    cleanVolume = Math.sqrt(cleanSum / bufferLength);
-                    
-                    if (rawVolume > 0.01) {
-                        noiseLevel = (rawVolume - cleanVolume) / rawVolume;
-                        noiseLevel = Math.max(0, Math.min(1, noiseLevel));
-                    } else {
-                        noiseLevel = 0;
-                    }
-                    
-                    // Flag noise warning if noise level is high (> 0.5) and raw volume is significant (> 0.05)
-                    if (noiseLevel > 0.5 && rawVolume > 0.05 && !isAISpeaking) {
-                        noiseWarn++;
-                        triggerWarning('noise');
-                    }
-                }, 1000);
-                
-            } catch (err) {
-                console.warn("Failed to initialize RNNoise noise detection:", err);
-            }
-        }
+        let audioContext, analyser, microphone, javascriptNode;
+        const NOISE_THRESHOLD = 0.15; // Adjusted for average mic sensitivity
 
         function startIntegrityMonitoring() {
             // 1. Tab switching (Enhanced) - Run this ALWAYS, even if there is no media stream
@@ -1045,111 +955,67 @@
                         return;
                     }
                     
-                    if (faceLandmarker) {
-                        const results = faceLandmarker.detectForVideo(videoEl, performance.now());
+                    // Switching to SsdMobilenetv1 for higher accuracy (deeper CNN model)
+                    const detection = await faceapi.detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
+                    
+                    if(!detection) {
+                        triggerWarning('face');
+                    } else {
+                        const expressions = {...detection.expressions};
                         
-                        if (!results || !results.faceLandmarks || results.faceLandmarks.length === 0) {
-                            triggerWarning('face');
-                        } else {
-                            // 1. Check for multi-person (Multiple faces detected)
-                            if (results.faceLandmarks.length > 1) {
-                                triggerWarning('multi-person');
-                            }
-                            
-                            // 2. Gaze / Look Away check using Face Mesh transformation matrix
-                            if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
-                                const matrixObj = results.facialTransformationMatrixes[0];
-                                const matrix = matrixObj.data || matrixObj; // Handle potential formats
-                                if (matrix && matrix.length >= 16) {
-                                    const pitch = Math.asin(-matrix[6]);
-                                    const yaw = Math.atan2(matrix[2], matrix[10]);
-                                    
-                                    const pitchDeg = pitch * (180 / Math.PI);
-                                    const yawDeg = yaw * (180 / Math.PI);
-                                    
-                                    // If candidate turns head left/right (> 22 deg) or up/down (> 18 deg), trigger look-away warning
-                                    if (Math.abs(yawDeg) > 22 || Math.abs(pitchDeg) > 18) {
-                                        const now = Date.now();
-                                        if (!window.lastLookAwayWarningTime || (now - window.lastLookAwayWarningTime > 3000)) {
-                                            window.lastLookAwayWarningTime = now;
-                                            triggerWarning('look-away');
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // 3. Extract blendshapes for the first face detected
-                            if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
-                                const blendshapes = results.faceBlendshapes[0].categories;
-                                const shapes = {};
-                                blendshapes.forEach(shape => {
-                                    shapes[shape.categoryName] = shape.score;
-                                });
-                                
-                                const rawHappy = ((shapes["mouthSmileLeft"] || 0) + (shapes["mouthSmileRight"] || 0)) / 2;
-                                const rawSad = ((shapes["mouthFrownLeft"] || 0) + (shapes["mouthFrownRight"] || 0) + (shapes["mouthShrugLower"] || 0)) / 3;
-                                const rawAngry = ((shapes["browDownLeft"] || 0) + (shapes["browDownRight"] || 0) + (shapes["eyeSquintLeft"] || 0) + (shapes["eyeSquintRight"] || 0)) / 4;
-                                const rawFearful = ((shapes["browOuterUpLeft"] || 0) + (shapes["browOuterUpRight"] || 0) + (shapes["browInnerUp"] || 0)) / 3;
-                                const rawSurprised = ((shapes["jawOpen"] || 0) + (shapes["eyeWideLeft"] || 0) + (shapes["eyeWideRight"] || 0)) / 3;
-                                const rawDisgusted = ((shapes["noseSneerLeft"] || 0) + (shapes["noseSneerRight"] || 0)) / 2;
-                                
-                                const expressions = {
-                                    neutral: 0.1,
-                                    happy: rawHappy,
-                                    sad: rawSad,
-                                    angry: rawAngry,
-                                    fearful: rawFearful,
-                                    surprised: rawSurprised,
-                                    disgusted: rawDisgusted
-                                };
-                                
-                                for (let key in expressions) {
-                                    if (key !== 'neutral') expressions[key] *= 5.0; 
-                                }
-                                
-                                let sum = Object.values(expressions).reduce((a,b) => a+b, 0);
-                                const normalized = {};
-                                for (let key in expressions) normalized[key] = expressions[key] / (sum || 1);
-
-                                const targetEmotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'disgusted'];
-                                const emotionBars = document.getElementById('emotion-bars');
-                                
-                                if (emotionBars) {
-                                    emotionBars.innerHTML = targetEmotions.map(emo => {
-                                        const val = normalized[emo] || 0;
-                                        return `
-                                            <div style="display:flex; flex-direction:column; gap: 3px;">
-                                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
-                                                    <span>${emo === 'fearful' ? 'Fear' : (emo === 'surprised' ? 'Surprise' : emo)}</span>
-                                                    <span>${Math.round(val * 100)}%</span>
-                                                </div>
-                                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
-                                                    <div style="width: ${val * 100}%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('');
-                                }
-
-                                let top = Object.entries(normalized).sort((a,b) => b[1]-a[1])[0][0];
-                                if (top === 'neutral' && expressions.neutral > 0.6) top = 'confidence';
-                                if (top === 'happy') top = 'interest';
-                                
-                                if (!window.emotionHistory) window.emotionHistory = [];
-                                window.emotionHistory.push(top);
-                                if (window.emotionHistory.length > 5) window.emotionHistory.shift();
-                                
-                                const counts = window.emotionHistory.reduce((acc, curr) => {
-                                    acc[curr] = (acc[curr] || 0) + 1;
-                                    return acc;
-                                }, {});
-                                const smoothedTop = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-                                
-                                window.currentDisplayEmotion = smoothedTop;
-                                document.getElementById('emotion-display').innerText = smoothedTop.toUpperCase();
-                            }
+                        // Ultra-Boost for Visibility
+                        for (let key in expressions) {
+                            if (key !== 'neutral') expressions[key] *= 5.0; 
                         }
+                        
+                        // Normalize
+                        let sum = Object.values(expressions).reduce((a,b) => a+b, 0);
+                        const normalized = {};
+                        for (let key in expressions) normalized[key] = expressions[key] / (sum || 1);
+
+                        // Fixed List for UI
+                        const targetEmotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'disgusted'];
+                        const emotionBars = document.getElementById('emotion-bars');
+                        
+                        if (emotionBars) {
+                            emotionBars.innerHTML = targetEmotions.map(emo => {
+                                const val = normalized[emo] || 0;
+                                return `
+                                    <div style="display:flex; flex-direction:column; gap: 3px;">
+                                        <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                            <span>${emo === 'fearful' ? 'Fear' : (emo === 'surprised' ? 'Surprise' : emo)}</span>
+                                            <span>${Math.round(val * 100)}%</span>
+                                        </div>
+                                        <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                            <div style="width: ${val * 100}%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+
+                        let top = Object.entries(normalized).sort((a,b) => b[1]-a[1])[0][0];
+                        if (top === 'neutral' && expressions.neutral > 0.6) top = 'confidence';
+                        if (top === 'happy') top = 'interest';
+                        
+                        if (!window.emotionHistory) window.emotionHistory = [];
+                        window.emotionHistory.push(top);
+                        if (window.emotionHistory.length > 5) window.emotionHistory.shift();
+                        
+                        // Pick the most frequent emotion in the last 3 frames to reduce flickering
+                        const counts = window.emotionHistory.reduce((acc, curr) => {
+                            acc[curr] = (acc[curr] || 0) + 1;
+                            return acc;
+                        }, {});
+                        const smoothedTop = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                        
+                        window.currentDisplayEmotion = smoothedTop;
+                        document.getElementById('emotion-display').innerText = smoothedTop.toUpperCase();
                     }
+
+                    // Check for multi-person separately if needed, or stick to single face detection
+                    const allDetections = await faceapi.detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }));
+                    if (allDetections.length > 1) triggerWarning('multi-person');
 
                 } catch(e) { console.warn("Detection error", e); }
             }, 1000); // Increased frequency to 1s
@@ -1178,7 +1044,7 @@
 
                 if (tabWarn >= 3) {
                     note = "Session terminated: Tab Switching limit (3 times) exceeded.";
-                    fetch(API_BASE + '/api/log_violation', {
+                    fetch('/api/log_violation', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1192,12 +1058,6 @@
             } else if (type === 'multi-person') {
                 totalViolations++;
                 note = "Multiple Persons in Frame";
-            } else if (type === 'noise') {
-                totalViolations++;
-                note = "High Background Noise";
-            } else if (type === 'look-away') {
-                totalViolations++;
-                note = "Looking Away from Screen";
             } else {
                 totalViolations++;
                 note = "Face Out of View";
@@ -1249,7 +1109,7 @@
             }
             
             // Log violation to backend
-            fetch(API_BASE + '/api/log_violation', {
+            fetch('/api/log_violation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1319,7 +1179,7 @@
                             formData.append('username', localStorage.getItem('username'));
                             
                             // Send full video upload
-                            await fetch(API_BASE + '/api/upload_full_video', {
+                            await fetch('/api/upload_full_video', {
                                 method: 'POST',
                                 body: formData
                             });
@@ -1336,6 +1196,7 @@
         }
 
         async function finishSimulation() {
+            isFinished = true;
             isSimActive = false;
             clearInterval(timerInterval);
             if(qTimerInterval) clearInterval(qTimerInterval);
@@ -1362,16 +1223,72 @@
                     formData.append('video', blob);
                     formData.append('username', localStorage.getItem('username'));
                     
-                    await fetch(API_BASE + '/api/upload_full_video', {
+                    await fetch('/api/upload_full_video', {
                         method: 'POST',
                         body: formData
                     });
                 }, 1000);
             }
             
-            document.getElementById('phase3').style.display = 'none';
-            document.getElementById('phase4').style.display = 'block';
-            document.getElementById('top-stage').innerText = "SESSION COMPLETE";
+            if (pendingAnalysisCount > 0) {
+                // Show a glassmorphic overlay indicating synchronization is active
+                let syncOverlay = document.getElementById('sync-overlay');
+                if (!syncOverlay) {
+                    syncOverlay = document.createElement('div');
+                    syncOverlay.id = 'sync-overlay';
+                    syncOverlay.style.position = 'fixed';
+                    syncOverlay.style.top = '0';
+                    syncOverlay.style.left = '0';
+                    syncOverlay.style.width = '100%';
+                    syncOverlay.style.height = '100%';
+                    syncOverlay.style.background = 'rgba(15, 23, 42, 0.85)';
+                    syncOverlay.style.backdropFilter = 'blur(10px)';
+                    syncOverlay.style.zIndex = '9999';
+                    syncOverlay.style.display = 'flex';
+                    syncOverlay.style.flexDirection = 'column';
+                    syncOverlay.style.alignItems = 'center';
+                    syncOverlay.style.justifyContent = 'center';
+                    syncOverlay.style.gap = '1.5rem';
+                    syncOverlay.style.color = '#fff';
+                    syncOverlay.style.fontFamily = 'Outfit, sans-serif';
+                    
+                    syncOverlay.innerHTML = `
+                        <div class="spinner" style="border: 4px solid rgba(0, 229, 255, 0.1); border-left-color: var(--primary-cyan); width: 50px; height: 50px; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        <h2 style="margin: 0; font-size: 1.5rem; letter-spacing: -0.5px;">Synthesizing Results...</h2>
+                        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Please wait while the AI model analyzes your final responses.</p>
+                    `;
+                    document.body.appendChild(syncOverlay);
+                    
+                    // Add spinner animation style if not exists
+                    if (!document.getElementById('spin-anim-style')) {
+                        const style = document.createElement('style');
+                        style.id = 'spin-anim-style';
+                        style.innerHTML = `
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                        `;
+                        document.head.appendChild(style);
+                    }
+                } else {
+                    syncOverlay.style.display = 'flex';
+                }
+            } else {
+                checkAndShowFinish();
+            }
+        }
+
+        function checkAndShowFinish() {
+            if (isFinished && pendingAnalysisCount === 0) {
+                const syncOverlay = document.getElementById('sync-overlay');
+                if (syncOverlay) {
+                    syncOverlay.style.display = 'none';
+                }
+                document.getElementById('phase3').style.display = 'none';
+                document.getElementById('phase4').style.display = 'block';
+                document.getElementById('top-stage').innerText = "SESSION COMPLETE";
+            }
         }
     </script>
 </body>

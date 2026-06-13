@@ -283,11 +283,6 @@
     </div>
 
     <script>
-        const API_BASE = localStorage.getItem('api_base') || 
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                ? (window.location.port === '8000' ? '' : 'http://localhost:8000')
-                : 'https://ai-interview-system.onrender.com');
-
         window.onload = () => {
             const token = localStorage.getItem('access_token');
             const user = localStorage.getItem('username');
@@ -380,7 +375,7 @@
             `;
 
             try {
-                const res = await fetch(API_BASE + '/api/get_result', {
+                const res = await fetch('/api/get_result', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -443,7 +438,7 @@
                 return;
             }
 
-            const res = await fetch(API_BASE + '/api/login', {
+            const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})
@@ -487,7 +482,7 @@
             if (!u || !p) { showMessage("Please fill all fields", "#ef4444"); return; }
             if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
 
-            const res = await fetch(API_BASE + '/api/register', {
+            const res = await fetch('/api/register', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})
@@ -516,7 +511,7 @@
             const token = localStorage.getItem('access_token');
             if (!token) return;
 
-            const res = await fetch(API_BASE + '/api/get_result', {
+            const res = await fetch('/api/get_result', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -552,7 +547,30 @@
                 const resultIntegrity = document.getElementById('result-integrity');
                 const resultSentiment = document.getElementById('result-sentiment');
 
-                if (data.status === "Pending") {
+                if (!data.has_interview) {
+                    document.getElementById('status-chips-container').style.display = 'block';
+                    document.getElementById('results-stats-grid').style.display = 'none';
+                    document.getElementById('result-title').style.display = 'none';
+                    document.querySelector('button[onclick="window.print()"]').style.display = 'none';
+
+                    resultTitle.innerText = "No Interview Found";
+                    resultBadge.innerText = "Waiting";
+                    resultBadge.className = "status-badge status-pending";
+                    
+                    resultMessage.innerHTML = `
+                        <div style="text-align: center; padding: 1.5rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px;">
+                            <div style="font-size: 2.5rem; margin-bottom: 1rem; filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.4));">🚀</div>
+                            <h2 style="color: #fff; margin-bottom: 0.5rem; font-size: 1.4rem;" class="outfit">No Interview Session Recorded</h2>
+                            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted); margin-bottom: 1.5rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                                You haven't taken the AI interview yet. Please go to the home tab and enter the interview room.
+                            </p>
+                            <button class="btn btn-primary" onclick="window.location.href='/simulation.html'" style="width: auto; padding: 8px 20px;">Start Interview</button>
+                        </div>
+                    `;
+                    resultScore.innerText = "--";
+                    resultIntegrity.innerText = "--";
+                    resultSentiment.innerText = "--";
+                } else if (data.status === "Pending") {
                     document.getElementById('status-chips-container').style.display = 'none';
                     document.getElementById('results-stats-grid').style.display = 'none';
                     document.getElementById('result-title').style.display = 'none';
@@ -649,7 +667,7 @@
             const u = raw_u ? raw_u.trim() : '';
             const e = document.getElementById('forgot-email').value;
             
-            const res = await fetch(API_BASE + '/api/verify_reset', {
+            const res = await fetch('/api/verify_reset', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, email: e})
@@ -672,7 +690,7 @@
 
             if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
 
-            const res = await fetch(API_BASE + '/api/submit_reset', {
+            const res = await fetch('/api/submit_reset', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})

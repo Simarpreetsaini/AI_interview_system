@@ -39,57 +39,76 @@ def analyze_answer_offline(question, answer, emotion):
 
     return round(final_score, 2)
 
+def clean_json_text(text):
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text
+
+def evaluate_answer_gemini(question, answer, emotion, api_key):
+    import urllib.request
+    import urllib.error
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    
+    prompt = (
+        "You are an expert technical interviewer evaluating a candidate's response.\n"
+        f"Question: {question}\n"
+        f"Candidate's Answer: {answer}\n"
+        f"Candidate's Primary Emotion: {emotion}\n\n"
+        "Evaluate the answer for accuracy, technical depth, and overall quality. "
+        "Include the emotion influence (e.g. nervousness, confidence) in your assessment.\n"
+        "You MUST reply ONLY with a valid JSON object matching this schema:\n"
+        "{\n"
+        "  \"score\": <integer/float between 0 and 100>,\n"
+        "  \"feedback\": \"<short feedback string>\"\n"
+        "}"
+    )
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+    
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+    
+    with urllib.request.urlopen(req, timeout=15) as response:
+        res_data = json.loads(response.read().decode("utf-8"))
+        candidate_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        cleaned_text = clean_json_text(candidate_text)
+        eval_data = json.loads(cleaned_text)
+        score = float(eval_data.get("score", 50.0))
+        feedback = eval_data.get("feedback", "")
+        print(f"Gemini Evaluation Score: {score}. Feedback: {feedback}")
+        return round(max(0.0, min(100.0, score)), 2)
+
 def analyze_answer(question, answer, emotion):
     """
-    Evaluates candidate response using Gemini (primary), GPT-4o, or local Llama 3 (via Ollama).
+    Evaluates candidate response using Gemini Free Tier, GPT-4o, or local Llama 3.
     Falls back to offline TF-IDF if no API keys / endpoints are configured.
     """
-    # 1. Gemini API Integration (Primary)
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    # 1. Gemini Integration (Free Tier)
+    gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
         try:
-            import urllib.request
-            
-            prompt = (
-                "You are an expert technical interviewer evaluating a candidate's response.\n"
-                f"Question: {question}\n"
-                f"Candidate's Answer: {answer}\n"
-                f"Candidate's Primary Emotion: {emotion}\n\n"
-                "Evaluate the answer for accuracy, technical depth, and overall quality. "
-                "Include the emotion influence (e.g. nervousness, confidence) in your assessment.\n"
-                "You MUST reply ONLY with a valid JSON object matching this schema:\n"
-                "{\n"
-                "  \"score\": <integer/float between 0 and 100>,\n"
-                "  \"feedback\": \"<short feedback string>\"\n"
-                "}"
-            )
-            
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-            payload = {
-                "contents": [{
-                    "parts": [{"text": prompt}]
-                }],
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "temperature": 0.3
-                }
-            }
-            
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            with urllib.request.urlopen(req, timeout=15) as response:
-                res = json.loads(response.read().decode('utf-8'))
-                candidate_text = res["candidates"][0]["content"]["parts"][0]["text"]
-                data = json.loads(candidate_text)
-                score = float(data.get("score", 50.0))
-                print(f"Gemini Evaluation Score: {score}. Feedback: {data.get('feedback')}")
-                return round(max(0.0, min(100.0, score)), 2)
+            print("Running answer evaluation using Gemini 1.5 Flash...")
+            score = evaluate_answer_gemini(question, answer, emotion, gemini_key)
+            return score
         except Exception as e:
-            print(f"Gemini API evaluation failed: {e}. Trying other fallback methods...")
+            print(f"Gemini evaluation failed: {e}. Falling back to other models...")
 
     # 2. GPT-4o Integration
     api_key = os.getenv("OPENAI_API_KEY")
@@ -127,7 +146,7 @@ def analyze_answer(question, answer, emotion):
         except Exception as e:
             print(f"GPT-4o evaluation failed: {e}. Falling back to offline evaluation.")
 
-    # 2. Local Llama 3 / Ollama Integration
+    # 3. Local Llama 3 / Ollama Integration
     use_ollama = os.getenv("USE_OLLAMA", "0") == "1"
     if use_ollama:
         ollama_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/chat")
@@ -162,5 +181,5 @@ def analyze_answer(question, answer, emotion):
         except Exception as e:
             print(f"Llama 3 local evaluation failed: {e}. Falling back to offline evaluation.")
 
-    # 3. Offline TF-IDF Fallback
+    # 4. Offline TF-IDF Fallback
     return analyze_answer_offline(question, answer, emotion)

@@ -1,7 +1,10 @@
 
 import os
+import json
+import wave
 import subprocess
-import numpy as np
+import tempfile
+from vosk import Model, KaldiRecognizer
 
 model = None
 
@@ -10,75 +13,99 @@ def load_model():
     if model is not None:
         return
         
-    # Use 'tiny' model on resource-constrained environments like Render to prevent OOM crashes
-    is_low_mem = os.getenv("RENDER") == "true" or os.getenv("DISABLE_ML") == "1"
-    model_size = "tiny" if is_low_mem else "base"
-        
+    model_name = "vosk-model-small-en-us-0.15"
     try:
-        from faster_whisper import WhisperModel
-        print(f"Loading Faster-Whisper {model_size} model on CPU...")
-        # Running on CPU, using int8 compute type for speed
-        model = WhisperModel(model_size, device="cpu", compute_type="int8")
-        model.type = "faster"
+        print(f"Loading Vosk model '{model_name}'...")
+        model = Model(model_name=model_name)
+        print("Vosk model loaded successfully.")
     except Exception as e:
-        print(f"Faster-Whisper import/load failed: {e}. Falling back to standard Whisper...")
-        try:
-            import whisper
-            model = whisper.load_model(model_size)
-            model.type = "standard"
-        except Exception as e2:
-            print(f"Standard Whisper load failed: {e2}.")
+        print(f"Vosk model load failed: {e}. Trying local fallback if exists...")
+        if os.path.exists(model_name):
+            try:
+                model = Model(model_name)
+                print("Vosk model loaded from local path.")
+            except Exception as e2:
+                print(f"Local Vosk model load failed: {e2}")
+                model = "fallback"
+        else:
+            print("Vosk model loading failed completely.")
             model = "fallback"
 
-def load_audio_as_numpy(path, sample_rate=16000):
-    try:
-        command = [
-            'ffmpeg',
-            '-y',
-            '-i', path,
-            '-f', 'f32le',
-            '-acodec', 'pcm_f32le',
-            '-ar', str(sample_rate),
-            '-ac', '1',
-            '-'
-        ]
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        stdout, _ = process.communicate()
-        if process.returncode == 0:
-            return np.frombuffer(stdout, dtype=np.float32)
-    except Exception as e:
-        print(f"Error loading audio via ffmpeg for VAD: {e}")
-    return None
-
 def transcribe_audio(path):
-    # Run Silero VAD pre-screening check to filter out non-speech audios (saves CPU/RAM)
-    try:
-        from modules.vad_detector import is_speaking
-        audio_data = load_audio_as_numpy(path)
-        if audio_data is not None and len(audio_data) > 0:
-            # If no speech detected by Silero VAD, bypass transcription entirely
-            if not is_speaking(audio_data, sample_rate=16000, threshold=0.4):
-                print(f"Silero VAD: No speech detected in {path}. Skipping transcription.")
-                return "No response captured."
-    except Exception as vad_err:
-        print(f"Silero VAD speech pre-screen failed: {vad_err}")
-
-    # Skip loading whisper on low-resource environments (like Render Free tier) to prevent OOM/CPU crash
-    is_low_mem = os.getenv("RENDER") == "true" or os.getenv("DISABLE_ML") == "1"
-    if is_low_mem:
-        print("INFO: Low memory/Render environment detected. Bypassing Whisper model loading to prevent OOM crash.")
+    if not path or not os.path.exists(path):
+        print(f"File path does not exist: {path}")
         return "No response captured."
 
     load_model()
-    if model == "fallback":
-        return "[Transcription Fallback: Whisper/Faster-Whisper not loaded]"
+    if model == "fallback" or model is None:
+        return "[Transcription Fallback: Vosk model not loaded]"
         
-    if getattr(model, "type", None) == "faster":
-        # segments is a generator, transcribing on-the-fly with Silero VAD filter enabled
-        segments, info = model.transcribe(path, beam_size=5, vad_filter=True)
-        text = " ".join([segment.text for segment in segments])
-        return text.strip()
-    else:
-        # Standard whisper fallback
-        result = model.transcribe(path)
-        return result["text"].strip()
+    # Look for local ffmpeg directory in the workspace (for Windows local setup)
+    workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    local_ffmpeg_dir = os.path.join(workspace_dir, "ffmpeg-2026-03-12-git-9dc44b43b2-essentials_build", "bin")
+    ffmpeg_exe = os.path.join(local_ffmpeg_dir, "ffmpeg.exe")
+    
+    ffmpeg_cmd = "ffmpeg"
+    if os.path.exists(ffmpeg_exe):
+        ffmpeg_cmd = ffmpeg_exe
+    
+    # Convert input file (WebM/MP4 etc) to PCM WAV 16kHz Mono using FFmpeg
+    wav_path = tempfile.mktemp(suffix=".wav")
+    
+    cmd = [
+        ffmpeg_cmd, "-y", "-i", path,
+        "-ar", "16000",
+        "-ac", "1",
+        "-acodec", "pcm_s16le",
+        wav_path
+    ]
+    
+    try:
+        print(f"Converting {path} to {wav_path} via FFmpeg using command: {ffmpeg_cmd}...")
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    except Exception as e:
+        print(f"FFmpeg audio conversion failed: {e}")
+        if os.path.exists(wav_path):
+            try:
+                os.remove(wav_path)
+            except:
+                pass
+        return "Audio conversion error."
+        
+    try:
+        wf = wave.open(wav_path, "rb")
+        if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
+            print("Audio file must be WAV format mono PCM.")
+            wf.close()
+            return "Invalid audio format."
+            
+        rec = KaldiRecognizer(model, wf.getframerate())
+        rec.SetWords(False)
+        
+        results = []
+        while True:
+            data = wf.readframes(4000)
+            if len(data) == 0:
+                break
+            if rec.AcceptWaveform(data):
+                res_obj = json.loads(rec.Result())
+                results.append(res_obj.get("text", ""))
+                
+        res_obj = json.loads(rec.FinalResult())
+        results.append(res_obj.get("text", ""))
+        
+        wf.close()
+        text = " ".join([r for r in results if r]).strip()
+        
+        if not text:
+            return "No response captured."
+        return text
+    except Exception as e:
+        print(f"Vosk transcription failed: {e}")
+        return "Transcription error."
+    finally:
+        if os.path.exists(wav_path):
+            try:
+                os.remove(wav_path)
+            except Exception as e:
+                print(f"Error removing temporary WAV file: {e}")
