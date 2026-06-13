@@ -9,6 +9,11 @@ _all_questions = []
 
 def init_retriever():
     global _index, _model, _all_questions
+    # Disable heavy ML models on Render/OOM-constrained environments to avoid crashing/hanging
+    if os.getenv("RENDER") == "true" or os.getenv("DISABLE_ML") == "1":
+        print("INFO: Skipping heavy FAISS initialization on Render to avoid OOM crash. Using fallback generator.")
+        return False
+
     if _index is not None:
         return True
         
