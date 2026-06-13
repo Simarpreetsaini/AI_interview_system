@@ -51,6 +51,16 @@
             border-color: #f59e0b;
             background: rgba(245, 158, 11, 0.05);
         }
+        @keyframes pulse-speaking {
+            0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+            70%  { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        #live-transcript-box.user-speaking {
+            animation: pulse-speaking 1s infinite !important;
+            border-color: #22c55e !important;
+            background: rgba(34, 197, 94, 0.08) !important;
+        }
 
         .video-overlay {
             position: absolute;
@@ -480,6 +490,27 @@
     </script>
     <!-- [LOGIC SCRIPT REINSERTED FROM ORIGINAL simulation.html] -->
     <script>
+        function formatTranscript(text) {
+            if (!text) return "";
+            text = text.trim();
+            if (text.length === 0) return "";
+            
+            // Capitalize first letter of the overall text
+            text = text.charAt(0).toUpperCase() + text.slice(1);
+            
+            // Capitalize 'i' as pronoun
+            text = text.replace(/\bi\b/g, "I");
+            text = text.replace(/\bi'm\b/g, "I'm");
+            text = text.replace(/\bi'll\b/g, "I'll");
+            text = text.replace(/\bi'd\b/g, "I'd");
+            text = text.replace(/\bi've\b/g, "I've");
+            
+            // Capitalize after periods, question marks, exclamation points followed by whitespace
+            text = text.replace(/([.!?]\s+)([a-z])/g, (match, separator, char) => separator + char.toUpperCase());
+            
+            return text;
+        }
+
         // Copying the original logic back to ensure no breakage
         async function startSimulation() {
             isSimActive = true;
@@ -650,6 +681,13 @@
             const textarea = document.getElementById('typing-fallback-area');
             if (textarea) textarea.value = "";
             
+            // Clear transcription display area
+            const transcriptionDisp = document.getElementById('last-transcription');
+            if (transcriptionDisp) {
+                transcriptionDisp.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Transcription will appear here...</span>';
+            }
+            activeTranscript = "";
+            
             await speak(q);
             
             // Wait 0.5s after speaking as requested
@@ -765,10 +803,34 @@
             let previousTranscript = '';
             let sessionFinalTranscript = '';
             activeTranscript = '';
-            document.getElementById('live-transcript-box').className = 'listening';
-            document.getElementById('transcript-status').innerText = 'Listening for response...';
-            document.getElementById('last-transcription').innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below)</span>';
             
+            const transcriptBox = document.getElementById('live-transcript-box');
+            const statusLabel = document.getElementById('transcript-status');
+            const lastTranscription = document.getElementById('last-transcription');
+            
+            transcriptBox.className = 'listening';
+            statusLabel.innerText = 'Listening for response...';
+            lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below)</span>';
+            
+            // User Speaking Visual Glow Handlers
+            const handleUserSpeakingStart = () => {
+                if (window.recognition !== activeRecognition) return;
+                transcriptBox.classList.add('user-speaking');
+                statusLabel.innerText = "Listening (Speaking... 🎤)";
+            };
+
+            const handleUserSpeakingEnd = () => {
+                if (window.recognition !== activeRecognition) return;
+                transcriptBox.classList.remove('user-speaking');
+                statusLabel.innerText = "Listening for response...";
+            };
+
+            activeRecognition.onspeechstart = handleUserSpeakingStart;
+            activeRecognition.onsoundstart = handleUserSpeakingStart;
+            
+            activeRecognition.onspeechend = handleUserSpeakingEnd;
+            activeRecognition.onsoundend = handleUserSpeakingEnd;
+
             activeRecognition.onresult = (event) => {
                 if (window.recognition !== activeRecognition) return;
                 if (isAISpeaking || !isAnswering) return; // Do not process results when AI is speaking or not answering
@@ -785,16 +847,24 @@
                 }
                 
                 sessionFinalTranscript = currentFinal;
-                activeTranscript = (previousTranscript + " " + sessionFinalTranscript + " " + interimTranscript).trim();
-                const currentText = activeTranscript;
+                let rawTranscript = (previousTranscript + " " + sessionFinalTranscript + " " + interimTranscript).trim();
+                activeTranscript = formatTranscript(rawTranscript);
                 
                 const fallbackArea = document.getElementById('typing-fallback-area');
                 if (fallbackArea && document.getElementById('typing-container').style.display !== 'none') {
                     if (document.activeElement !== fallbackArea) {
-                        fallbackArea.value = currentText;
+                        fallbackArea.value = activeTranscript;
                     }
                 } else {
-                    document.getElementById('last-transcription').innerHTML = `<span class="final">${previousTranscript} ${sessionFinalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
+                    let finalPart = formatTranscript(previousTranscript + " " + sessionFinalTranscript);
+                    let interimPart = interimTranscript;
+                    if (finalPart && interimPart) {
+                        lastTranscription.innerHTML = `<span class="final">${finalPart}</span> <span class="interim" style="opacity:0.5"> ${interimPart}</span>`;
+                    } else if (finalPart) {
+                        lastTranscription.innerHTML = `<span class="final">${finalPart}</span>`;
+                    } else {
+                        lastTranscription.innerHTML = `<span class="interim" style="opacity:0.5">${interimPart}</span>`;
+                    }
                 }
             };
 
@@ -804,6 +874,8 @@
                 if (event.error === 'not-allowed') {
                     showToast("⚠️ Microphone access blocked. Please type your response.");
                     showTypeFallback();
+                } else if (event.error === 'network') {
+                    console.warn("Speech recognition network error. Reconnecting...");
                 }
             };
 
@@ -822,6 +894,8 @@
 
             activeRecognition.onend = () => {
                 if (window.recognition !== activeRecognition) return;
+                
+                transcriptBox.classList.remove('user-speaking');
                 
                 if (sessionFinalTranscript) {
                     previousTranscript = (previousTranscript + " " + sessionFinalTranscript).trim();
@@ -861,6 +935,12 @@
                 container.style.display = 'none';
                 transcriptionDisp.style.display = 'block';
                 toggleBtn.innerText = "Type Response ⌨️";
+                
+                const textarea = document.getElementById('typing-fallback-area');
+                if (textarea && textarea.value.trim()) {
+                    activeTranscript = textarea.value.trim();
+                    transcriptionDisp.innerHTML = `<span class="final">${activeTranscript}</span>`;
+                }
             }
         }
         

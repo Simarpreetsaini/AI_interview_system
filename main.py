@@ -325,21 +325,10 @@ async def analyze_answer_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    answer_text = answer or ""
+    answer_text = answer or "No response captured."
     
-    # Determine if we have a valid browser-provided live transcription to skip Whisper
-    clean_ans = answer_text.strip().lower()
-    has_valid_frontend_transcript = (
-        clean_ans 
-        and clean_ans != "no response captured." 
-        and clean_ans != "answer could not be transcribed."
-        and len(clean_ans.split()) >= 1
-    )
-    
-    # If audio is provided, transcribe it (overwrites the 'answer' text if present)
+    # If audio/video is provided, save it (required for dashboard video playback)
     video_url = None
-    
-    # Use video if provided, otherwise fallback to audio
     target_media = video or audio
     
     if target_media:
@@ -363,20 +352,11 @@ async def analyze_answer_endpoint(
             
             # If cloud upload worked and returned a URL, we can optionally delete local
             if video_url.startswith("http") and os.path.exists(perm_path):
-                 # Keep local for now as backup or delete if cloud is reliable
                  pass
             else:
                  video_url = f"/{perm_path}"
-
-            # Only run backend Whisper transcription if we don't already have a valid live transcript from the frontend
-            if has_valid_frontend_transcript:
-                print(f"INFO: Using browser-provided live transcription for user {username}: '{answer_text}' (skipped backend Whisper)")
-            else:
-                try:
-                    from fastapi.concurrency import run_in_threadpool
-                    answer_text = await run_in_threadpool(transcribe_audio, tmp_path)
-                except Exception as e:
-                    answer_text = "Answer could not be transcribed."
+                 
+            print(f"INFO: Using Web Speech API transcription for user {username}: '{answer_text}' (skipped backend Whisper/Vosk)")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

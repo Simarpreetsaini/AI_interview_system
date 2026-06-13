@@ -126,6 +126,42 @@ def parse_resume(file):
         for q in qual_keywords:
             if q in text_lower:
                 qualifications.append(q.upper())
+                
+    # Extract branch/course if B.Tech / B.E. is detected
+    has_btech = False
+    for qual in qualifications:
+        qual_lower = qual.lower()
+        if any(x in qual_lower for x in ["b.tech", "btech", "bachelor of technology", "b.e.", "bachelor of engineering"]):
+            has_btech = True
+            break
+            
+    if not has_btech:
+        if any(x in text_lower for x in ["b.tech", "btech", "bachelor of technology", "b.e.", "bachelor of engineering"]):
+            has_btech = True
+            
+    if has_btech:
+        branch = None
+        if any(x in text_lower for x in ["artificial intelligence and machine learning", "artificial intelligence & machine learning", "ai & ml", "ai/ml", "aiml"]):
+            branch = "AIML"
+        elif any(x in text_lower for x in ["data science", "data analytics"]):
+            branch = "Data Science"
+        elif any(x in text_lower for x in ["computer science", "cse"]):
+            branch = "CSE"
+        elif any(x in text_lower for x in ["information technology", "it"]):
+            branch = "IT"
+        elif any(x in text_lower for x in ["electronics and communication", "electronics & communication", "ece"]):
+            branch = "ECE"
+        elif any(x in text_lower for x in ["electrical", "ee", "eee"]):
+            branch = "EE"
+        elif any(x in text_lower for x in ["mechanical", "me"]):
+            branch = "ME"
+        elif any(x in text_lower for x in ["civil", "ce"]):
+            branch = "CE"
+            
+        qual_string = "B.Tech"
+        if branch:
+            qual_string += f" ({branch})"
+        qualifications = [qual_string]
     
     if not qualifications:
         qualifications = ["Degree not specified"]
