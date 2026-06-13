@@ -257,10 +257,10 @@
                         </div>
                     </div>
                     <div id="last-transcription" class="outfit" style="height: 60px; overflow-y: auto; font-size: 0.9rem; color: rgba(255,255,255,0.8); line-height: 1.5; font-style: italic;">
-                        Transcription will appear here...
+                        Transcription will appear here... (For automatic voice transcribing, please use Google Chrome or Microsoft Edge)
                     </div>
                     <div id="typing-container" style="display: none; margin-top: 8px;">
-                        <textarea id="typing-fallback-area" placeholder="Type your answer here..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; color: #fff; padding: 8px; font-size: 0.85rem; font-family: inherit; resize: none; outline: none; box-sizing: border-box;"></textarea>
+                        <textarea id="typing-fallback-area" placeholder="Type your answer here... (Tip: Use Google Chrome or Edge for automatic voice transcribing)" style="width: 100%; height: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; color: #fff; padding: 8px; font-size: 0.85rem; font-family: inherit; resize: none; outline: none; box-sizing: border-box;"></textarea>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
                         <button id="btn-submit-answer" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 0.75rem; border-radius: 8px; font-weight: 700; height: auto;" onclick="submitActiveAnswer()">Submit Answer ✓</button>
@@ -328,7 +328,11 @@
     </div>
 
     <script>
-
+        function getApiUrl(path) {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const base = isLocal ? '' : 'https://ai-interview-system-remk.onrender.com';
+            return base + path;
+        }
 
         let questions = [];
         let currentQIndex = -1;
@@ -383,7 +387,7 @@
             
             // Check candidate status and interview presence
             try {
-                const res = await fetch('/api/get_result', {
+                const res = await fetch(getApiUrl('/api/get_result'), {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -427,7 +431,7 @@
             formData.append("username", localStorage.getItem('username'));
 
             try {
-                const res = await fetch('/api/upload_resume', { method: 'POST', body: formData });
+                const res = await fetch(getApiUrl('/api/upload_resume'), { method: 'POST', body: formData });
                 if (!res.ok) {
                     throw new Error(`HTTP error! status: ${res.status}`);
                 }
@@ -684,7 +688,7 @@
             // Clear transcription display area
             const transcriptionDisp = document.getElementById('last-transcription');
             if (transcriptionDisp) {
-                transcriptionDisp.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Transcription will appear here...</span>';
+                transcriptionDisp.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Transcription will appear here... (For automatic voice transcribing, please use Google Chrome or Microsoft Edge)</span>';
             }
             activeTranscript = "";
             
@@ -790,7 +794,7 @@
 
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if(!SpeechRecognition) {
-                showToast("⚠️ Speech recognition not supported. Please type your response.");
+                showToast("⚠️ Speech recognition is not supported in this browser. We highly recommend using Google Chrome or Microsoft Edge for the best experience.");
                 showTypeFallback();
                 return;
             }
@@ -810,7 +814,7 @@
             
             transcriptBox.className = 'listening';
             statusLabel.innerText = 'Listening for response...';
-            lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below)</span>';
+            lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below. Note: Google Chrome/Edge is recommended for voice transcribing)</span>';
             
             // User Speaking Visual Glow Handlers
             const handleUserSpeakingStart = () => {
@@ -872,7 +876,7 @@
                 if (window.recognition !== activeRecognition) return;
                 console.error("Speech Recognition Error:", event.error);
                 if (event.error === 'not-allowed') {
-                    showToast("⚠️ Microphone access blocked. Please type your response.");
+                    showToast("⚠️ Microphone access or speech permission is blocked. Please check site permissions. We recommend Google Chrome or Microsoft Edge.");
                     showTypeFallback();
                 } else if (event.error === 'network') {
                     console.warn("Speech recognition network error. Reconnecting...");
@@ -1002,7 +1006,7 @@
             }
 
             // We send it to the endpoint that handles scoring and DB saving
-            const res = await fetch('/api/process_audio', {
+            const res = await fetch(getApiUrl('/api/process_audio'), {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
                 body: formData
@@ -1124,7 +1128,7 @@
 
                 if (tabWarn >= 3) {
                     note = "Session terminated: Tab Switching limit (3 times) exceeded.";
-                    fetch('/api/log_violation', {
+                    fetch(getApiUrl('/api/log_violation'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1189,7 +1193,7 @@
             }
             
             // Log violation to backend
-            fetch('/api/log_violation', {
+            fetch(getApiUrl('/api/log_violation'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1259,7 +1263,7 @@
                             formData.append('username', localStorage.getItem('username'));
                             
                             // Send full video upload
-                            await fetch('/api/upload_full_video', {
+                            await fetch(getApiUrl('/api/upload_full_video'), {
                                 method: 'POST',
                                 body: formData
                             });
@@ -1303,7 +1307,7 @@
                     formData.append('video', blob);
                     formData.append('username', localStorage.getItem('username'));
                     
-                    await fetch('/api/upload_full_video', {
+                    await fetch(getApiUrl('/api/upload_full_video'), {
                         method: 'POST',
                         body: formData
                     });
