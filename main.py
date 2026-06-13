@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, BackgroundTasks
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
@@ -249,6 +249,33 @@ from modules.whisper_transcriber import transcribe_audio
 import tempfile
 from datetime import datetime
 
+# Background Upload Helpers
+def upload_answer_video_bg(db_session_id: int, local_path: str, answer_filename: str):
+    db = SessionLocal()
+    try:
+        from storage import upload_file_to_storage
+        cloud_url = upload_file_to_storage(local_path, answer_filename)
+        if cloud_url.startswith("http"):
+            session_rec = db.query(InterviewSession).filter(InterviewSession.id == db_session_id).first()
+            if session_rec:
+                session_rec.video_url = cloud_url
+                db.commit()
+            if os.path.exists(local_path):
+                os.remove(local_path)
+    except Exception as e:
+        print(f"Background answer video upload error: {e}")
+    finally:
+        db.close()
+
+def upload_full_video_bg(local_path: str, object_name: str):
+    try:
+        from storage import upload_file_to_storage
+        cloud_url = upload_file_to_storage(local_path, object_name)
+        if cloud_url.startswith("http") and os.path.exists(local_path):
+            os.remove(local_path)
+    except Exception as e:
+        print(f"Background full video upload error: {e}")
+
 @app.post("/api/upload_resume")
 async def upload_resume(
     resume: UploadFile = File(...),
@@ -332,14 +359,30 @@ async def analyze_answer_endpoint(
     audio: UploadFile = File(None),
     video: UploadFile = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None
 ):
     answer_text = answer or "No response captured."
     
-    # If audio/video is provided, save it (required for dashboard video playback)
-    video_url = None
-    target_media = video or audio
+    # Calculate score
+    score = analyze_answer(question, answer_text, emotion)
     
+    # Save session record to DB with correctly-cased username from access token
+    new_session = InterviewSession(
+        username=current_user.username,
+        date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        question=question,
+        answer=answer_text,
+        emotion=emotion,
+        score=score,
+        video_url=None
+    )
+    db.add(new_session)
+    db.commit()
+    db.refresh(new_session)
+    
+    # If audio/video is provided, save it (required for dashboard video playback)
+    target_media = video or audio
     if target_media:
         os.makedirs("static/videos/answers", exist_ok=True)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
@@ -348,7 +391,7 @@ async def analyze_answer_endpoint(
         
         try:
             # Save as a permanent file for viewing
-            safe_username = username.replace("/", "_").replace("\\", "_").replace(" ", "_")
+            safe_username = current_user.username.replace("/", "_").replace("\\", "_").replace(" ", "_")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             answer_filename = f"{safe_username}_answer_{timestamp}.webm"
             perm_path = f"static/videos/answers/{answer_filename}"
@@ -356,35 +399,26 @@ async def analyze_answer_endpoint(
             import shutil
             shutil.copy(tmp_path, perm_path)
             
-            # Upload to cloud if available
-            video_url = upload_file_to_storage(perm_path, answer_filename)
+            # Record local path initially
+            new_session.video_url = f"/{perm_path}"
+            db.commit()
             
-            # If cloud upload worked and returned a URL, we can optionally delete local
-            if video_url.startswith("http") and os.path.exists(perm_path):
-                 pass
+            # Queue background Cloudinary upload task to prevent request timeouts
+            if background_tasks:
+                background_tasks.add_task(upload_answer_video_bg, new_session.id, perm_path, answer_filename)
             else:
-                 video_url = f"/{perm_path}"
-                 
-            print(f"INFO: Using Web Speech API transcription for user {username}: '{answer_text}' (skipped backend Whisper/Vosk)")
+                # Fallback to sync if background tasks context is not available
+                cloud_url = upload_file_to_storage(perm_path, answer_filename)
+                if cloud_url.startswith("http"):
+                    new_session.video_url = cloud_url
+                    db.commit()
+                    if os.path.exists(perm_path):
+                        os.remove(perm_path)
+            
+            print(f"INFO: Using Web Speech API transcription for user {current_user.username}: '{answer_text}' (skipped backend Whisper/Vosk)")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
-
-    # Calculate score
-    score = analyze_answer(question, answer_text, emotion)
-    
-    # Save session record to DB
-    new_session = InterviewSession(
-        username=username,
-        date=datetime.now().strftime("%Y-%m-%d %H:%M"),
-        question=question,
-        answer=answer_text,
-        emotion=emotion,
-        score=score,
-        video_url=video_url
-    )
-    db.add(new_session)
-    db.commit()
 
     return {"success": True, "score": score, "transcription": answer_text}
 
@@ -396,7 +430,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
     # Aggregate by user
     user_records = {}
     
-    # 1. Initialize ALL users in the dictionary (excluding admin)
+    # 1. Initialize ALL users in the dictionary (excluding admin) with case-insensitive lowercase keys
     for u in users:
         if u.username == 'admin':
             continue
@@ -417,7 +451,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         user_sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(u.username)).all()
         transcript = [{"q": s.question, "a": s.answer, "s": s.score, "v": s.video_url} for s in user_sessions]
 
-        user_records[u.username] = {
+        user_records[u.username.lower()] = {
             "username": u.username,
             "candidate": u.username,
             "date": "Not Started",
@@ -439,28 +473,28 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             "transcript": transcript
         }
 
-    # 2. Populate session data
+    # 2. Populate session data case-insensitively
     for s in sessions:
-        u = s.username
-        if u in user_records:
+        u_lower = s.username.lower() if s.username else ""
+        if u_lower in user_records:
             # Overwrite 'Not Started' with actual date/time
-            if user_records[u]["date"] == "Not Started":
+            if user_records[u_lower]["date"] == "Not Started":
                 dt_parts = s.date.split(" ")
-                user_records[u]["date"] = dt_parts[0] if len(dt_parts) > 0 else s.date
-                user_records[u]["time"] = dt_parts[1] if len(dt_parts) > 1 else ""
-                user_records[u]["integrity"] = "Secure" # Reset from N/A to default Secure
+                user_records[u_lower]["date"] = dt_parts[0] if len(dt_parts) > 0 else s.date
+                user_records[u_lower]["time"] = dt_parts[1] if len(dt_parts) > 1 else ""
+                user_records[u_lower]["integrity"] = "Secure" # Reset from N/A to default Secure
             
-            user_records[u]["scores"].append(cast(float, s.score))
-            user_records[u]["emotions"].append(s.emotion)
+            user_records[u_lower]["scores"].append(cast(float, s.score))
+            user_records[u_lower]["emotions"].append(s.emotion)
             
             # Use actual violation notes to determine integrity
-            if user_records[u]["integrity_notes"]:
-                user_records[u]["integrity"] = "Compromised"
+            if user_records[u_lower]["integrity_notes"]:
+                user_records[u_lower]["integrity"] = "Compromised"
             else:
-                user_records[u]["integrity"] = "Secure"
+                user_records[u_lower]["integrity"] = "Secure"
             
     results = []
-    for u, data in user_records.items():
+    for u_lower, data in user_records.items():
         avg_score = sum(data["scores"]) / len(data["scores"]) if data["scores"] else 0.0
         data["score"] = round(avg_score)
         
@@ -548,7 +582,7 @@ async def log_violation(req: ViolationRequest, db: Session = Depends(get_db)):
     return {"success": False, "message": "User not found"}
 
 @app.post("/api/upload_full_video")
-async def upload_full_video(video: UploadFile = File(...), username: str = Form(...)):
+async def upload_full_video(video: UploadFile = File(...), username: str = Form(...), background_tasks: BackgroundTasks = None):
     os.makedirs("static/videos", exist_ok=True)
     # Sanitize username for filesystem: remove spaces and risky chars
     safe_username = username.replace("/", "_").replace("\\", "_").replace(" ", "_")
@@ -558,14 +592,18 @@ async def upload_full_video(video: UploadFile = File(...), username: str = Form(
     with open(local_path, "wb") as f:
         f.write(await video.read())
         
-    # Upload to Cloud Storage (falls back to local path if AWS keys aren't set)
-    cloud_url = upload_file_to_storage(local_path, object_name)
-    
-    # Optionally delete local file if successfully uploaded to cloud
-    if cloud_url.startswith("http") and os.path.exists(local_path):
-        os.remove(local_path)
+    if background_tasks:
+        background_tasks.add_task(upload_full_video_bg, local_path, object_name)
+        return {"success": True, "path": f"/static/videos/{object_name}"}
+    else:
+        # Upload to Cloud Storage (falls back to local path if AWS keys aren't set)
+        cloud_url = upload_file_to_storage(local_path, object_name)
         
-    return {"success": True, "path": cloud_url}
+        # Optionally delete local file if successfully uploaded to cloud
+        if cloud_url.startswith("http") and os.path.exists(local_path):
+            os.remove(local_path)
+            
+        return {"success": True, "path": cloud_url}
 
 class AdminActionRequest(BaseModel):
     username: str
