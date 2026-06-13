@@ -103,7 +103,7 @@
 </head>
 <body class="manager-layout">
     <div class="topbar">
-        <h1 class="outfit" style="margin-bottom: 0; font-size: 1.5rem;">Admin Insights</h1>
+        <h1 class="outfit" style="margin-bottom: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;"><img src="/static/images/logo.png" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--primary-cyan);" alt="Logo">Admin Insights</h1>
         <div id="live-clock" style="color: var(--primary-cyan); font-weight: 800; font-size: 0.9rem; letter-spacing: 1px;"></div>
         <button class="btn-outline btn-logout" onclick="logout()">Sign Out</button>
     </div>
@@ -262,7 +262,9 @@
                     </td>
                     <td style="padding: 20px 15px;">
                         <div style="font-weight: 800; color: #fff; font-size: 1rem; letter-spacing: -0.5px;">${record.candidate}</div>
-                        <div style="font-size: 0.7rem; color: var(--primary-cyan); font-weight: 700; text-transform: uppercase; margin-top: 2px;">${record.experience}</div>
+                        <div style="font-size: 0.75rem; color: var(--primary-cyan); font-weight: 700; text-transform: uppercase; margin-top: 4px;">
+                            ${record.experience}
+                        </div>
                     </td>
                     <td style="padding: 20px 15px;">
                         <div style="display:flex; flex-direction:column; gap: 6px;">
@@ -400,9 +402,11 @@
                         <div class="subtitle" style="font-size: 0.75rem; margin-bottom: 0.5rem;">Analytical Summary for</div>
                         <h2 style="font-size: 2.2rem; margin-bottom: 1rem;" class="outfit">${record.candidate}</h2>
                         
-                        <div style="display:flex; gap: 1rem; margin-bottom: 2rem;">
+                        <div style="display:flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
                             <span style="padding: 6px 14px; border-radius: 10px; background: rgba(0,229,255,0.1); color: var(--primary-cyan); font-weight: 700; font-size: 0.8rem;">${record.experience.toUpperCase()}</span>
                             <span style="padding: 6px 14px; border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; font-weight: 700; font-size: 0.8rem;">ID: ${record.username}</span>
+                            ${record.domain && record.domain !== 'N/A' ? `<span style="padding: 6px 14px; border-radius: 10px; background: rgba(139,92,246,0.1); color: #8b5cf6; font-weight: 700; font-size: 0.8rem;">DOMAIN: ${record.domain.toUpperCase()}</span>` : ''}
+                            ${record.source && record.source !== 'N/A' ? `<span style="padding: 6px 14px; border-radius: 10px; background: rgba(236,72,153,0.1); color: #ec4899; font-weight: 700; font-size: 0.8rem;">SOURCE: ${record.source.toUpperCase()}</span>` : ''}
                         </div>
 
                         <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
@@ -568,12 +572,6 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-        }
-
-        function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('username');
-            window.location.href = '/index.html';
         }
     </script>
 </body>

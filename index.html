@@ -108,6 +108,9 @@
 <body>
     <div class="container">
         <div class="card">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img src="/static/images/logo.png" alt="AI Interview Logo" style="width: 70px; height: 70px; border-radius: 50%; box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); border: 2px solid var(--primary-cyan); object-fit: cover;">
+            </div>
             <div class="subtitle">AI INTERVIEW SIMULATION</div>
             <h1 class="outfit">Talent Portal</h1>
 
@@ -141,10 +144,9 @@
             </div>
 
             <div id="post-login-options" style="display: none; margin-top: 2rem; text-align: center;">
-                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! What would you like to do?</p>
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    <button class="btn btn-primary" onclick="window.location.href='/simulation.html'">🚀 Enter Interview Room</button>
-                    <button class="btn-outline" onclick="switchTab('results')">📊 View My Result & Feedback</button>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem;">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Retrieving your session status...</p>
                 </div>
             </div>
 
@@ -168,7 +170,7 @@
                 <div id="result-display" style="display: block; width: 100%;">
                     <div id="status-chips-container" style="margin-bottom: 1rem;"></div>
                     
-                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div id="results-stats-grid" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="box" style="text-align: center; padding: 0.8rem;">
                             <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Final Score</div>
                             <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-cyan); line-height: 1;"><span id="result-score">--</span>%</div>
@@ -249,6 +251,17 @@
             } else {
                 switchTab('login');
             }
+
+            // Clear error/success messages automatically when user edits any field
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const msg = document.getElementById('msg');
+                    if (msg) {
+                        msg.innerText = '';
+                        msg.style.opacity = '0';
+                    }
+                });
+            });
         };
 
         function logout() {
@@ -282,6 +295,7 @@
                 document.getElementById('tab-login').classList.add('active');
                 if (localStorage.getItem('access_token')) {
                     document.getElementById('post-login-options').style.display = 'block';
+                    updatePostLoginUI();
                 } else {
                     document.getElementById('login-form').style.display = 'block';
                 }
@@ -292,6 +306,74 @@
             } else {
                 document.getElementById('tab-register').classList.add('active');
                 document.getElementById('register-form').style.display = 'block';
+            }
+        }
+
+        async function updatePostLoginUI() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+
+            const postLoginOptions = document.getElementById('post-login-options');
+            if (!postLoginOptions) return;
+
+            postLoginOptions.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem; padding: 1.5rem;">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Retrieving your session status...</p>
+                </div>
+            `;
+
+            try {
+                const res = await fetch('/api/get_result', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.has_interview && data.status === "Pending") {
+                        postLoginOptions.innerHTML = `
+                            <div style="text-align: center; padding: 1.5rem; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 20px;">
+                                <div style="font-size: 2.5rem; margin-bottom: 1rem; filter: drop-shadow(0 0 10px var(--primary-cyan));">⏳</div>
+                                <h3 style="color: #fff; margin-bottom: 0.5rem;" class="outfit">Interview Under Review</h3>
+                                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                                    Your interview has been recorded successfully. The administrator is currently reviewing your session. You will be notified once a decision is made.
+                                </p>
+                                <button class="btn-outline" onclick="switchTab('results')" style="width: 100%;">📊 Check Status & Details</button>
+                            </div>
+                        `;
+                    } else if (data.has_interview && (data.status === "Approved" || data.status === "Rejected" || data.status === "Approve")) {
+                        postLoginOptions.innerHTML = `
+                            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! Your interview evaluation is complete.</p>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <button class="btn btn-primary" onclick="switchTab('results')">📊 View My Result & Feedback</button>
+                            </div>
+                        `;
+                    } else {
+                        postLoginOptions.innerHTML = `
+                            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! Ready to start your interview?</p>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <button class="btn btn-primary pulse-btn" onclick="window.location.href='/simulation.html'">🚀 Enter Interview Room</button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    postLoginOptions.innerHTML = `
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! What would you like to do?</p>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <button class="btn btn-primary" onclick="window.location.href='/simulation.html'">🚀 Enter Interview Room</button>
+                            <button class="btn-outline" onclick="switchTab('results')">📊 View My Result & Feedback</button>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error("Error updating post-login UI:", err);
+                postLoginOptions.innerHTML = `
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Welcome back! What would you like to do?</p>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <button class="btn btn-primary" onclick="window.location.href='/simulation.html'">🚀 Enter Interview Room</button>
+                        <button class="btn-outline" onclick="switchTab('results')">📊 View My Result & Feedback</button>
+                    </div>
+                `;
             }
         }
 
@@ -328,6 +410,8 @@
                 document.getElementById('logged-in-user').innerText = u;
                 document.getElementById('post-login-options').style.display = 'block';
                 document.getElementById('tab-login').classList.add('active');
+                
+                updatePostLoginUI();
                 
                 if (document.getElementById('results-view').style.display === 'block') {
                     checkResult();
@@ -411,43 +495,31 @@
                 const resultSentiment = document.getElementById('result-sentiment');
 
                 if (data.status === "Pending") {
+                    document.getElementById('status-chips-container').style.display = 'none';
+                    document.getElementById('results-stats-grid').style.display = 'none';
+                    document.getElementById('result-title').style.display = 'none';
+                    document.querySelector('button[onclick="window.print()"]').style.display = 'none';
+
                     resultTitle.innerText = "Neural Synthesis";
                     resultBadge.innerText = "Evaluation in Progress";
                     resultBadge.className = "status-badge status-pending";
                     
                     resultMessage.innerHTML = `
-                            <div style="text-align: center; padding: 0.5rem;">
-                                <div style="font-size: 2rem; margin-bottom: 0.8rem; filter: drop-shadow(0 0 10px var(--primary-cyan));">⌛</div>
-                                <h2 style="color: #fff; margin-bottom: 0.4rem; font-size: 1.4rem; letter-spacing: -1px;" class="outfit">The Path to Excellence</h2>
-                                <p style="font-size: 0.85rem; line-height: 1.5; color: #94a3b8; margin-bottom: 1rem; max-width: 500px; margin-left: auto; margin-right: auto;">
-                                    Our AI diagnostics are performing a deep-layer synthesis of your performance.
-                                </p>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem;">
-                                    <div style="background: rgba(0,229,255,0.03); padding: 0.8rem; border-radius: 12px; border: 1px solid rgba(0,229,255,0.1); text-align: left;">
-                                        <div style="color: var(--primary-cyan); font-size: 0.6rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">🛡️ Courage</div>
-                                        <p style="font-size: 0.75rem; color: #fff; font-style: italic; line-height: 1.3;">
-                                            Be proud of the bravery you showed today.
-                                        </p>
-                                    </div>
-                                    <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: left;">
-                                        <div style="color: #94a3b8; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">🕯️ Patience</div>
-                                        <p style="font-size: 0.75rem; color: #fff; font-style: italic; line-height: 1.3;">
-                                            Great things are never rushed. Stay patient.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <p style="color: #94a3b8; font-size: 0.65rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05);">
-                                    Results verified only by administration.
+                            <div style="text-align: center; padding: 1.5rem; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 20px;">
+                                <div style="font-size: 2.5rem; margin-bottom: 1rem; filter: drop-shadow(0 0 10px var(--primary-cyan));">⏳</div>
+                                <h2 style="color: #fff; margin-bottom: 0.5rem; font-size: 1.4rem; letter-spacing: -1px;" class="outfit">Interview Under Review</h2>
+                                <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted); margin-bottom: 1rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                                    Your interview has been recorded successfully. The administrator is currently reviewing your session. You will be notified once a decision is made.
                                 </p>
                             </div>
                         `;
                     resultScore.innerText = "--";
                     resultIntegrity.innerText = "--";
                     resultSentiment.innerText = "--";
-                    document.querySelector('button[onclick="window.print()"]').style.display = 'none';
                 } else {
+                    document.getElementById('status-chips-container').style.display = 'block';
+                    document.getElementById('results-stats-grid').style.display = 'grid';
+                    document.getElementById('result-title').style.display = 'block';
                     const isPass = data.status === "Approve" || data.status === "Approved";
                     
                     if (isPass) {
@@ -569,6 +641,6 @@
             }, 250);
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/static/js/confetti.browser.min.js"></script>
 </body>
 </html>

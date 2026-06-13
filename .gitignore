@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+venv_old/
 env/
 .env
 
@@ -16,6 +17,7 @@ env/
 *.mp3
 *.mp4
 *.wav
+*.webm
 
 # Local binaries
 ffmpeg-*/

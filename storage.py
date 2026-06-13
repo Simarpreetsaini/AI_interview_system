@@ -23,7 +23,9 @@ def upload_file_to_storage(file_path: str, object_name: str) -> str:
                 resource_type="video",
                 public_id=object_name.split('.')[0]
             )
-            return response.get('secure_url')
+            if response is not None and hasattr(response, "get"):
+                return response.get('secure_url') or f"/static/videos/{object_name}"
+            return f"/static/videos/{object_name}"
         except Exception as e:
             print(f"Failed to upload to Cloudinary: {e}")
             return f"/static/videos/{object_name}"

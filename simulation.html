@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Interview Simulator</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    <script src="/static/js/face-api.min.js"></script>
     <style>
         .candidate-info-card { background: rgba(0,229,255,0.03); border: 1px solid rgba(0,229,255,0.1); padding: 1.5rem; border-radius: 16px; margin-top: 1.5rem; text-align: left;}
         .candidate-info-card p { margin: 12px 0; color: var(--text-main); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;}
@@ -141,7 +141,7 @@
 </head>
 <body class="simulation-layout">
     <div class="topbar">
-        <h1>Interview Room</h1>
+        <h1 style="display: flex; align-items: center; gap: 10px;"><img src="/static/images/logo.png" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--primary-cyan);" alt="Logo">Interview Room</h1>
         <div class="subtitle" id="top-stage">PHASE 1: INITIALIZATION</div>
         <button class="btn-outline btn-logout" onclick="logout()">Exit Session</button>
     </div>
@@ -164,6 +164,7 @@
                     <option value="experienced">Experienced (1+ Years)</option>
                 </select>
             </div>
+
             <button class="btn btn-primary" onclick="goToPhase2()">Initialize Matrix ➡</button>
         </div>
     </div>
@@ -216,8 +217,9 @@
                     <video id="webcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
                     <canvas id="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%;"></canvas>
                     <div class="overlay-status" id="integrity-badge">🛡️ INTEGRITY: SECURE</div>
-                    <div id="integrity-warning-badge" style="display:none; position: absolute; top: 60px; left: 20px; background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 0.8rem; z-index: 10; border: 2px solid white; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);">
-                        ⚠️ VIOLATION DETECTED (<span id="warning-count-display">0</span>)
+                    <div id="integrity-warning-badge" style="display:none; position: absolute; top: 60px; left: 20px; background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: 0.8rem; z-index: 10; border: 2px solid white; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); display: none; align-items: center; gap: 10px;">
+                        <span>⚠️ VIOLATION DETECTED (<span id="warning-count-display">0</span>)</span>
+                        <button onclick="dismissViolation()" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; font-weight: 900; line-height: 1; padding: 0 2px; opacity: 0.8;" title="Dismiss">✕</button>
                     </div>
                     <div id="emotion-matrix" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); width: 180px; z-index: 100;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -234,12 +236,18 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                         <div id="transcript-status" style="font-size: 0.65rem; font-weight: 800; color: var(--primary-cyan); text-transform: uppercase; letter-spacing: 1px;">System Initializing...</div>
                         <div style="display: flex; gap: 1rem;">
-                            <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">ANSWER TIME</div><div id="q-timer" style="font-weight: 800; color: var(--primary-cyan); font-size: 0.9rem;">30s</div></div>
+                            <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">ANSWER TIME</div><div id="q-timer" style="font-weight: 800; color: var(--primary-cyan); font-size: 0.9rem;">25s</div></div>
                             <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">SESSION</div><div id="session-timer" style="font-weight: 800; color: #fff; font-size: 0.9rem;">00:00</div></div>
                         </div>
                     </div>
                     <div id="last-transcription" class="outfit" style="height: 60px; overflow-y: auto; font-size: 0.9rem; color: rgba(255,255,255,0.8); line-height: 1.5; font-style: italic;">
                         Transcription will appear here...
+                    </div>
+                    <div id="typing-container" style="display: none; margin-top: 8px;">
+                        <textarea id="typing-fallback-area" placeholder="Type your answer here..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; color: #fff; padding: 8px; font-size: 0.85rem; font-family: inherit; resize: none; outline: none; box-sizing: border-box;"></textarea>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                        <button id="btn-type-toggle" class="skill-tag" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; color: var(--text-muted);" onclick="toggleTypingFallback()">Type Response ⌨️</button>
                     </div>
                 </div>
             </div>
@@ -259,10 +267,6 @@
                         <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
                             <span class="integrity-label">Tab Switch</span>
                             <span id="stat-tab" class="integrity-value secure">0 / 3</span>
-                        </div>
-                        <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
-                            <span class="integrity-label">Noise Level</span>
-                            <span id="stat-noise" class="integrity-value secure">Normal</span>
                         </div>
                         <div class="integrity-item" style="padding: 8px 12px; margin-bottom: 0;">
                             <span class="integrity-label">Face Focus</span>
@@ -304,9 +308,8 @@
     </div>
 
     <script>
-        // ... (Existing script remains the same for logic) ...
-        // Note: I'm keeping the logic from simulation.html but updating the display handling
-        
+
+
         let questions = [];
         let currentQIndex = -1;
         let isSimActive = false;
@@ -323,6 +326,62 @@
         let tabWarn = 0;
         let faceWarn = 0;
         let noiseWarn = 0;
+        let lastTabWarningTime = 0;
+        let statusLabel;
+        let modelsLoaded = false;
+        let modelsFailed = false;
+
+        async function loadFaceAPIModels() {
+            try {
+                const modelUrl = '/static/models';
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl);
+                await faceapi.nets.faceExpressionNet.loadFromUri(modelUrl);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
+                console.log("FaceAPI Models Loaded");
+                modelsLoaded = true;
+                statusLabel = document.getElementById('transcript-status');
+                if (statusLabel) statusLabel.innerText = "MATRIX SYNCHRONIZED";
+            } catch(e) {
+                console.error("FaceAPI Load Error", e);
+                modelsFailed = true;
+                statusLabel = document.getElementById('transcript-status');
+                if (statusLabel) statusLabel.innerText = "MODEL SYNC ERROR (Using Fallback)";
+            }
+        }
+
+        window.onload = async () => {
+            const token = localStorage.getItem('access_token');
+            const user = localStorage.getItem('username');
+            if (!token || !user) {
+                alert("⛔ Session expired or authentication required. Please log in first.");
+                window.location.href = '/';
+                return;
+            }
+            
+            // Check candidate status and interview presence
+            try {
+                const res = await fetch('/api/get_result', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.has_interview) {
+                    if (data.status === "Pending") {
+                        alert("⏳ Your interview is currently pending admin review. You cannot retake it at this time.");
+                    } else {
+                        alert("📊 Your interview evaluation is complete. You cannot enter the interview room.");
+                    }
+                    window.location.href = '/index.html?show_results=1';
+                    return;
+                }
+            } catch (err) {
+                console.error("Error checking interview status:", err);
+            }
+            
+            // Start background calibration of FaceAPI models
+            loadFaceAPIModels();
+            
+
+        };
 
         async function goToPhase2() {
             const age = document.getElementById('cand-age').value;
@@ -341,6 +400,7 @@
             const formData = new FormData();
             formData.append("resume", file);
             formData.append("experience", document.getElementById('cand-exp').value);
+
             formData.append("username", localStorage.getItem('username'));
 
             try {
@@ -399,7 +459,7 @@
             document.getElementById('phase3').style.display = 'block';
             document.getElementById('top-stage').innerText = "PHASE 3: SIMULATION ACTIVE";
             
-            const statusLabel = document.getElementById('transcript-status');
+            statusLabel = document.getElementById('transcript-status');
 
             // Populate Question Bank UI
             const listContainer = document.getElementById('question-list');
@@ -409,15 +469,57 @@
                 </div>
             `).join('');
 
-            // Start Webcam
-            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            document.getElementById('webcam').srcObject = mediaStream;
-            
-            // Init Recorder
-            videoChunks = [];
-            fullSessionRecorder = new MediaRecorder(mediaStream);
-            fullSessionRecorder.ondataavailable = e => { if(e.data.size > 0) videoChunks.push(e.data); };
-            fullSessionRecorder.start();
+            // Start Webcam and Audio Stream with fallback
+            try {
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (err) {
+                    console.warn("Failed to get both video and audio, trying video only...", err);
+                    try {
+                        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    } catch (err2) {
+                        console.warn("Failed to get video, trying audio only...", err2);
+                        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    }
+                }
+
+                if (mediaStream) {
+                    const webcamVideo = document.getElementById('webcam');
+                    if (webcamVideo) {
+                        webcamVideo.srcObject = mediaStream;
+                    }
+                    
+                    // Init Recorder
+                    videoChunks = [];
+                    if (window.MediaRecorder) {
+                        let options = {};
+                        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+                            options = { mimeType: 'video/webm;codecs=vp9' };
+                        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                            options = { mimeType: 'video/webm' };
+                        }
+                        
+                        try {
+                            fullSessionRecorder = new MediaRecorder(mediaStream, options);
+                            fullSessionRecorder.ondataavailable = e => { if(e.data.size > 0) videoChunks.push(e.data); };
+                            fullSessionRecorder.start();
+                        } catch (recErr) {
+                            console.error("Failed to start MediaRecorder:", recErr);
+                            fullSessionRecorder = null;
+                        }
+                    } else {
+                        console.warn("MediaRecorder not supported in this browser.");
+                        fullSessionRecorder = null;
+                    }
+                } else {
+                    throw new Error("No media devices acquired");
+                }
+            } catch(e) {
+                console.warn("Webcam/Microphone access failed or not available:", e);
+                showToast("⚠️ Webcam/Mic not detected. Starting in compatibility mode.");
+                mediaStream = null;
+                fullSessionRecorder = null;
+            }
 
             // Init Global Timer
             timerInterval = setInterval(() => {
@@ -427,18 +529,13 @@
                 document.getElementById('session-timer').innerText = `${min}:${sec}`;
             }, 1000);
 
-            // Init Face API
-            try {
-                if (statusLabel) statusLabel.innerText = "LOADING NEURAL MODELS...";
-                const modelUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-                await faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl);
-                await faceapi.nets.faceExpressionNet.loadFromUri(modelUrl);
-                await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
-                console.log("FaceAPI Models Loaded");
-                if (statusLabel) statusLabel.innerText = "MATRIX SYNCHRONIZED";
-            } catch(e) { 
-                console.error("FaceAPI Load Error", e); 
-                if (statusLabel) statusLabel.innerText = "MODEL SYNC ERROR (Using Fallback)";
+            // Wait for Face API models to load in the background (if they haven't yet)
+            if (!modelsLoaded && !modelsFailed) {
+                statusLabel = document.getElementById('transcript-status');
+                if (statusLabel) statusLabel.innerText = "CALIBRATING AI MODELS...";
+                while (!modelsLoaded && !modelsFailed) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
             }
             
             startIntegrityMonitoring();
@@ -446,16 +543,27 @@
         }
 
         let qTimerInterval;
-        let qTimeLeft = 30;
+        let qTimeLeft = 25;
         let answerRecorder;
-        let answerChunks = [];
 
         function startAnswerRecording() {
-            if(!mediaStream) return;
-            answerChunks = [];
-            answerRecorder = new MediaRecorder(mediaStream);
-            answerRecorder.ondataavailable = e => { if(e.data.size > 0) answerChunks.push(e.data); };
-            answerRecorder.start();
+            if(!mediaStream || !window.MediaRecorder) return;
+            let options = {};
+            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+                options = { mimeType: 'video/webm;codecs=vp9' };
+            } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                options = { mimeType: 'video/webm' };
+            }
+            try {
+                answerRecorder = new MediaRecorder(mediaStream, options);
+                const chunks = [];
+                answerRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+                answerRecorder.chunks = chunks;
+                answerRecorder.start();
+            } catch (err) {
+                console.error("Failed to start answer recorder:", err);
+                answerRecorder = null;
+            }
         }
 
         async function stopAnswerRecording() {
@@ -464,11 +572,12 @@
                     resolve(null);
                     return;
                 }
-                answerRecorder.onstop = () => {
-                    const blob = new Blob(answerChunks, { type: 'video/webm' });
+                const currentRecorder = answerRecorder;
+                currentRecorder.onstop = () => {
+                    const blob = new Blob(currentRecorder.chunks || [], { type: 'video/webm' });
                     resolve(blob);
                 };
-                answerRecorder.stop();
+                currentRecorder.stop();
             });
         }
 
@@ -506,13 +615,16 @@
             document.getElementById('q-progress').style.width = `${((currentQIndex + 1) / questions.length) * 100}%`;
             
             // Update AI Action text in transcript status area
-            const statusLabel = document.getElementById('transcript-status');
+            statusLabel = document.getElementById('transcript-status');
             if (statusLabel) statusLabel.innerText = "AI is Speaking...";
+            
+            // Clear typing area
+            const textarea = document.getElementById('typing-fallback-area');
+            if (textarea) textarea.value = "";
             
             await speak(q);
             
             // Wait 0.5s after speaking as requested
-            const statusLabel = document.getElementById('transcript-status');
             if (statusLabel) statusLabel.innerText = "PREPARING...";
             await new Promise(r => setTimeout(r, 500));
             
@@ -526,7 +638,7 @@
         }
 
         function startQuestionTimer() {
-            qTimeLeft = 30;
+            qTimeLeft = 25;
             document.getElementById('q-timer').innerText = `${qTimeLeft}s`;
             document.getElementById('q-timer').style.color = "#00e5ff";
             
@@ -539,9 +651,18 @@
                 if(qTimeLeft <= 0) {
                     clearInterval(qTimerInterval);
                     isAnswering = false;
-                    const finalT = document.querySelector('#last-transcription .final')?.innerText || "";
-                    const interimT = document.querySelector('#last-transcription .interim')?.innerText || "";
-                    handleQuestionTimeout(finalT + " " + interimT);
+                    
+                    let answerText = "";
+                    const container = document.getElementById('typing-container');
+                    if (container && container.style.display !== 'none') {
+                        answerText = document.getElementById('typing-fallback-area').value;
+                    } else {
+                        const finalT = document.querySelector('#last-transcription .final')?.innerText || "";
+                        const interimT = document.querySelector('#last-transcription .interim')?.innerText || "";
+                        answerText = finalT + " " + interimT;
+                    }
+                    
+                    handleQuestionTimeout(answerText);
                 }
             }, 1000);
         }
@@ -551,19 +672,19 @@
                 // Clear any existing speech
                 window.speechSynthesis.cancel();
                 
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.onend = () => {
+                window.currentUtterance = new SpeechSynthesisUtterance(text);
+                window.currentUtterance.onend = () => {
                     document.getElementById('live-transcript-box').classList.remove('speaking');
                     resolve();
                 };
-                utterance.onerror = (e) => {
+                window.currentUtterance.onerror = (e) => {
                     console.error("Speech Error:", e);
                     document.getElementById('live-transcript-box').classList.remove('speaking');
                     resolve(); // Resolve anyway to not block the flow
                 };
                 
                 document.getElementById('live-transcript-box').classList.add('speaking');
-                window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.speak(window.currentUtterance);
                 
                 // Fallback timeout in case onend doesn't fire (browser bug)
                 setTimeout(() => {
@@ -576,7 +697,8 @@
         function startVoiceRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if(!SpeechRecognition) {
-                showToast("⚠️ Speech recognition not supported in this browser.");
+                showToast("⚠️ Speech recognition not supported. Please type your response.");
+                showTypeFallback();
                 return;
             }
             recognition = new SpeechRecognition();
@@ -586,7 +708,7 @@
             let finalTranscript = '';
             document.getElementById('live-transcript-box').className = 'listening';
             document.getElementById('transcript-status').innerText = 'Listening for response...';
-            document.getElementById('last-transcription').innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now...</span>';
+            document.getElementById('last-transcription').innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below)</span>';
             
             recognition.onresult = (event) => {
                 let interimTranscript = '';
@@ -597,22 +719,81 @@
                         interimTranscript += event.results[i][0].transcript;
                     }
                 }
-                document.getElementById('last-transcription').innerHTML = `<span class="final">${finalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
+                const currentText = finalTranscript + " " + interimTranscript;
+                const fallbackArea = document.getElementById('typing-fallback-area');
+                if (fallbackArea && document.getElementById('typing-container').style.display !== 'none') {
+                    if (document.activeElement !== fallbackArea) {
+                        fallbackArea.value = currentText;
+                    }
+                } else {
+                    document.getElementById('last-transcription').innerHTML = `<span class="final">${finalTranscript}</span> <span class="interim" style="opacity:0.5">${interimTranscript}</span>`;
+                }
             };
 
-            recognition.onend = async () => {
-                if(isSimActive && qTimeLeft > 0) {
-                    // This triggers if the user stops speaking manually or if there's a glitch
-                    // We don't want to advance yet if the timer is still running
-                    // unless we want to allow early submission.
-                    // But the requirement says "every question take 30 sec", 
-                    // which usually means a fixed window. 
-                    // Let's restart recognition if timer is still going.
-                    if (qTimeLeft > 0) recognition.start();
+            recognition.onerror = (event) => {
+                console.error("Speech Recognition Error:", event.error);
+                if (event.error === 'not-allowed') {
+                    showToast("⚠️ Microphone access blocked. Please type your response.");
+                    showTypeFallback();
+                }
+            };
+
+            recognition.onend = () => {
+                if (isSimActive && isAnswering && qTimeLeft > 0) {
+                    setTimeout(() => {
+                        try {
+                            if (isSimActive && isAnswering && qTimeLeft > 0) {
+                                recognition.start();
+                            }
+                        } catch (err) {
+                            console.warn("SpeechRecognition restart failed:", err);
+                        }
+                    }, 100);
                 }
             };
             
-            recognition.start();
+            try {
+                recognition.start();
+            } catch(e) {
+                console.error("Failed to start SpeechRecognition:", e);
+            }
+        }
+
+        function toggleTypingFallback() {
+            const container = document.getElementById('typing-container');
+            const transcriptionDisp = document.getElementById('last-transcription');
+            const toggleBtn = document.getElementById('btn-type-toggle');
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                transcriptionDisp.style.display = 'none';
+                toggleBtn.innerText = "Voice Recognition 🎤";
+                
+                const textarea = document.getElementById('typing-fallback-area');
+                textarea.focus();
+                
+                const text = transcriptionDisp.innerText;
+                if (text && !text.includes("Speak now...") && !text.includes("Transcription will appear here...")) {
+                    textarea.value = text;
+                }
+            } else {
+                container.style.display = 'none';
+                transcriptionDisp.style.display = 'block';
+                toggleBtn.innerText = "Type Response ⌨️";
+            }
+        }
+        
+        function showTypeFallback() {
+            const container = document.getElementById('typing-container');
+            const transcriptionDisp = document.getElementById('last-transcription');
+            const toggleBtn = document.getElementById('btn-type-toggle');
+            
+            container.style.display = 'block';
+            transcriptionDisp.style.display = 'none';
+            toggleBtn.style.display = 'none';
+            
+            const textarea = document.getElementById('typing-fallback-area');
+            textarea.focus();
         }
 
         async function handleQuestionTimeout(transcript) {
@@ -621,25 +802,26 @@
             }
             
             const currentEmotion = window.currentDisplayEmotion || "neutral";
+            const currentQuestionText = questions[currentQIndex];
             
-            const videoBlob = await stopAnswerRecording();
-            
-            // AI Evaluate candidate answer at a time but not show to candidate
-            try {
-                await analyzeAnswer(transcript, currentEmotion, videoBlob);
-            } catch(e) { console.error("Answer analysis error", e); }
-            
-            const statusLabel = document.getElementById('transcript-status');
-            if (statusLabel) statusLabel.innerText = "Updating Records...";
-            await new Promise(r => setTimeout(r, 1000)); // Brief pause for UX
-            
+            // Immediately proceed to the next question so the AI assistant starts asking it
             nextQuestion();
+
+            // Process stopping and analysis asynchronously in the background
+            stopAnswerRecording().then(videoBlob => {
+                analyzeAnswer(currentQuestionText, transcript, currentEmotion, videoBlob)
+                    .catch(e => console.error("Answer analysis error:", e));
+            }).catch(e => {
+                console.error("Error stopping recording:", e);
+                analyzeAnswer(currentQuestionText, transcript, currentEmotion, null)
+                    .catch(ae => console.error("Answer analysis error without video:", ae));
+            });
         }
 
-        async function analyzeAnswer(text, emotion, videoBlob) {
+        async function analyzeAnswer(questionText, text, emotion, videoBlob) {
             const formData = new FormData();
             formData.append('username', localStorage.getItem('username'));
-            formData.append('question', questions[currentQIndex]);
+            formData.append('question', questionText);
             formData.append('answer', text || "No response captured.");
             formData.append('emotion', emotion || "neutral");
             if (videoBlob) {
@@ -659,17 +841,27 @@
         const NOISE_THRESHOLD = 0.15; // Adjusted for average mic sensitivity
 
         function startIntegrityMonitoring() {
-            // 1. Tab switching (Enhanced)
+            // 1. Tab switching (Enhanced) - Run this ALWAYS, even if there is no media stream
             window.onblur = () => triggerWarning('tab');
             document.addEventListener("visibilitychange", () => {
                 if (document.visibilityState === 'hidden') triggerWarning('tab');
             });
+
+            if (!mediaStream) {
+                console.log("No media stream available. Face and noise monitoring disabled.");
+                return;
+            }
             
             // 2. Face & Multi-person Detection
             setInterval(async () => {
                 if(!isSimActive) return;
                 try {
                     const videoEl = document.getElementById('webcam');
+                    const stream = videoEl.srcObject;
+                    if (!stream || stream.getVideoTracks().length === 0) {
+                        return;
+                    }
+                    
                     // Switching to SsdMobilenetv1 for higher accuracy (deeper CNN model)
                     const detection = await faceapi.detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
                     
@@ -734,54 +926,6 @@
 
                 } catch(e) { console.warn("Detection error", e); }
             }, 1000); // Increased frequency to 1s
-
-            // 3. Noise Detection
-            startNoiseDetection();
-        }
-
-        async function startNoiseDetection() {
-            try {
-                const stream = document.getElementById('webcam').srcObject;
-                if (!stream) return;
-
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                microphone = audioContext.createMediaStreamSource(stream);
-                analyser.fftSize = 512;
-                microphone.connect(analyser);
-
-                const bufferLength = analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-                const sampleRate = audioContext.sampleRate;
-
-                const checkNoise = () => {
-                    if (!isSimActive) return;
-                    if (!isAnswering || isAISpeaking) {
-                        setTimeout(checkNoise, 500);
-                        return;
-                    }
-                    analyser.getByteFrequencyData(dataArray);
-                    
-                    // TARGET: Tighter Voice Frequency Range (approx 300Hz to 2500Hz)
-                    const lowBin = Math.floor(300 * (analyser.fftSize / sampleRate));
-                    const highBin = Math.ceil(2500 * (analyser.fftSize / sampleRate));
-                    
-                    let voiceSum = 0;
-                    for (let i = lowBin; i <= highBin; i++) voiceSum += dataArray[i];
-                    
-                    let averageVoice = voiceSum / (highBin - lowBin + 1);
-                    let vocalIntensity = averageVoice / 128;
-
-                    // Speech is characterized by rhythmic energy in these bands.
-                    // Background hum is usually steady and lower intensity.
-                    if (vocalIntensity > 0.55) { 
-                        triggerWarning('noise');
-                    }
-                    
-                    if (isSimActive) setTimeout(checkNoise, 2000); 
-                };
-                checkNoise();
-            } catch (e) { console.error("Voice detection init error", e); }
         }
 
         function triggerWarning(type) {
@@ -790,27 +934,37 @@
             let severity = "low";
 
             if(type === 'tab') {
+                const now = Date.now();
+                if (now - lastTabWarningTime < 2000) {
+                    return;
+                }
+                lastTabWarningTime = now;
+
                 tabWarn++;
                 totalViolations++;
                 note = "Tab Switching Detected";
                 const statTab = document.getElementById('stat-tab');
-                statTab.innerText = `${tabWarn} / 3`;
-                statTab.className = `integrity-value warning`;
+                if (statTab) {
+                    statTab.innerText = `${tabWarn} / 3`;
+                    statTab.className = `integrity-value warning`;
+                }
+
+                if (tabWarn >= 3) {
+                    note = "Session terminated: Tab Switching limit (3 times) exceeded.";
+                    fetch('/api/log_violation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
+                    }).then(() => {
+                        terminateSession("You have switched tabs 3 times. Your session has been terminated due to an integrity violation.");
+                    }).catch(() => {
+                        terminateSession("You have switched tabs 3 times. Your session has been terminated due to an integrity violation.");
+                    });
+                    return;
+                }
             } else if (type === 'multi-person') {
                 totalViolations++;
                 note = "Multiple Persons in Frame";
-            } else if (type === 'noise') {
-                totalViolations++;
-                note = "Secondary Person Voice Detected";
-                const statNoise = document.getElementById('stat-noise');
-                statNoise.innerText = "Voice detected";
-                statNoise.className = "integrity-value warning";
-                setTimeout(() => {
-                    if (isSimActive) {
-                        statNoise.innerText = "Normal";
-                        statNoise.className = "integrity-value secure";
-                    }
-                }, 3000);
             } else {
                 totalViolations++;
                 note = "Face Out of View";
@@ -829,12 +983,17 @@
             const warningBadge = document.getElementById('integrity-warning-badge');
             const warningCountDisplay = document.getElementById('warning-count-display');
             if (warningBadge) {
-                warningBadge.style.display = 'block';
+                warningBadge.style.display = 'flex';
                 warningCountDisplay.innerText = totalViolations;
                 // Animate it
                 warningBadge.style.animation = 'none';
                 void warningBadge.offsetWidth;
                 warningBadge.style.animation = 'pulse-red-text 1s';
+                // Auto-dismiss after 4 seconds
+                if (window._violationDismissTimer) clearTimeout(window._violationDismissTimer);
+                window._violationDismissTimer = setTimeout(() => {
+                    warningBadge.style.display = 'none';
+                }, 4000);
             }
 
             // Termination check removed as requested
@@ -867,7 +1026,12 @@
         }
 
         function dismissViolation() {
-            // Logic removed with overlay
+            const warningBadge = document.getElementById('integrity-warning-badge');
+            if (warningBadge) warningBadge.style.display = 'none';
+            if (window._violationDismissTimer) {
+                clearTimeout(window._violationDismissTimer);
+                window._violationDismissTimer = null;
+            }
         }
 
         function showToast(msg) {
@@ -886,9 +1050,50 @@
             setTimeout(() => t.remove(), 3000);
         }
 
-        function terminateSession(reason) {
+        async function terminateSession(reason) {
             isSimActive = false;
-            // Redirect to another window (page) as requested
+            try {
+                if(typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+                if(typeof qTimerInterval !== 'undefined') clearInterval(qTimerInterval);
+                if(typeof recognition !== 'undefined' && recognition) recognition.stop();
+            } catch(e) {}
+            
+            // Stop media stream tracks (webcam/mic)
+            if (mediaStream) {
+                try {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                } catch(e) {}
+            }
+
+            // Stop fullSessionRecorder and upload whatever was recorded
+            if(fullSessionRecorder && fullSessionRecorder.state !== 'inactive') {
+                try {
+                    fullSessionRecorder.stop();
+                } catch(e) {}
+                
+                // Wait for ondataavailable to trigger and compile the chunks
+                await new Promise(resolve => {
+                    setTimeout(async () => {
+                        try {
+                            const blob = new Blob(videoChunks, { type: 'video/webm' });
+                            const formData = new FormData();
+                            formData.append('video', blob);
+                            formData.append('username', localStorage.getItem('username'));
+                            
+                            // Send full video upload
+                            await fetch('/api/upload_full_video', {
+                                method: 'POST',
+                                body: formData
+                            });
+                        } catch (err) {
+                            console.error("Failed to upload video during termination:", err);
+                        }
+                        resolve();
+                    }, 1000);
+                });
+            }
+            
+            // Redirect to terminated page
             window.location.href = `/terminated.html?reason=${encodeURIComponent(reason)}`;
         }
 
@@ -922,12 +1127,6 @@
             document.getElementById('phase3').style.display = 'none';
             document.getElementById('phase4').style.display = 'block';
             document.getElementById('top-stage').innerText = "SESSION COMPLETE";
-        }
-
-        function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('username');
-            window.location.href = '/index.html';
         }
     </script>
 </body>

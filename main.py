@@ -9,11 +9,11 @@ import os
 import json
 import sys
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import cast
 from database import engine, get_db, Base, SessionLocal
 from models import User, InterviewSession
 import models
-from celery_worker import process_audio_transcription
 from storage import upload_file_to_storage
 
 # Create DB tables
@@ -24,47 +24,72 @@ def migrate_db():
     """Add new columns to existing SQLite DB without losing data."""
     try:
         with engine.connect() as conn:
-            # Check existing columns
-            result = conn.execute(text("PRAGMA table_info(users)"))
-            existing_cols = {row[1] for row in result}
+            # Check existing columns dialect-sensitively
+            if engine.dialect.name == "sqlite":
+                result = conn.execute(text("PRAGMA table_info(users)"))
+                existing_cols = {row[1] for row in result}
+            elif engine.dialect.name == "postgresql":
+                result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='users'"))
+                existing_cols = {row[0] for row in result}
+            else:
+                existing_cols = set()
             
-            if "resume_path" not in existing_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN resume_path TEXT"))
-                conn.commit()
-                print("✅ Added column: users.resume_path")
+            if existing_cols:
+                if "resume_path" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN resume_path TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.resume_path")
+                
+                if "experience" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN experience TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.experience")
+
+                if "email" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.email")
+
+                if "phone" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN phone TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.phone")
+
+                if "domain" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN domain TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.domain")
+
+                if "source" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN source TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.source")
+
+                if "integrity_notes" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN integrity_notes TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.integrity_notes")
             
-            if "experience" not in existing_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN experience TEXT"))
-                conn.commit()
-                print("✅ Added column: users.experience")
+            # Check for InterviewSession columns dialect-sensitively
+            if engine.dialect.name == "sqlite":
+                result_sessions = conn.execute(text("PRAGMA table_info(interview_sessions)"))
+                existing_session_cols = {row[1] for row in result_sessions}
+            elif engine.dialect.name == "postgresql":
+                result_sessions = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='interview_sessions'"))
+                existing_session_cols = {row[0] for row in result_sessions}
+            else:
+                existing_session_cols = set()
+                
+            if existing_session_cols:
+                if "answer" not in existing_session_cols:
+                    conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN answer TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: interview_sessions.answer")
 
-            if "email" not in existing_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
-                conn.commit()
-                print("✅ Added column: users.email")
-
-            if "phone" not in existing_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN phone TEXT"))
-                conn.commit()
-                print("✅ Added column: users.phone")
-
-            if "integrity_notes" not in existing_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN integrity_notes TEXT"))
-                conn.commit()
-                print("✅ Added column: users.integrity_notes")
-            
-            # Check for InterviewSession columns
-            result_sessions = conn.execute(text("PRAGMA table_info(interview_sessions)"))
-            existing_session_cols = {row[1] for row in result_sessions}
-            if "answer" not in existing_session_cols:
-                conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN answer TEXT"))
-                conn.commit()
-                print("✅ Added column: interview_sessions.answer")
-
-            if "video_url" not in existing_session_cols:
-                conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN video_url TEXT"))
-                conn.commit()
-                print("✅ Added column: interview_sessions.video_url")
+                if "video_url" not in existing_session_cols:
+                    conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN video_url TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: interview_sessions.video_url")
     except Exception as e:
         print(f"Migration warning: {e}")
 
@@ -97,7 +122,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -110,8 +135,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        username = payload.get("sub")
+        if not isinstance(username, str):
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
@@ -130,32 +155,34 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/favicon.ico")
 async def favicon():
-    return Response(content="", media_type="image/x-icon")
+    return FileResponse("static/images/logo.png")
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
 async def chrome_devtools():
     return {"status": "ok"}
 
 # Serve HTML files
+NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
-    return FileResponse("index.html")
+    return FileResponse("index.html", headers=NO_CACHE_HEADERS)
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def serve_index_alias():
-    return FileResponse("index.html")
+    return FileResponse("index.html", headers=NO_CACHE_HEADERS)
 
 @app.get("/simulation.html", response_class=HTMLResponse)
 async def serve_simulation():
-    return FileResponse("simulation.html")
+    return FileResponse("simulation.html", headers=NO_CACHE_HEADERS)
 
 @app.get("/manager.html", response_class=HTMLResponse)
 async def serve_manager():
-    return FileResponse("manager.html")
+    return FileResponse("manager.html", headers=NO_CACHE_HEADERS)
 
 @app.get("/terminated.html", response_class=HTMLResponse)
 async def serve_terminated():
-    return FileResponse("terminated.html")
+    return FileResponse("terminated.html", headers=NO_CACHE_HEADERS)
 
 
 # API Models
@@ -182,20 +209,24 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
 @app.post("/api/login")
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
-    if user and user.password == req.password:
-        if user.access == "revoke" and req.username != "admin":
-            return {"success": False, "message": "Access revoked by admin"}
+    if not user:
+        return {"success": False, "message": "Username is not registered. Please create an account."}
         
-        access_token = create_access_token(data={"sub": user.username})
-        return {"success": True, "message": "Login successful", "access_token": access_token}
-            
-    return {"success": False, "message": "Invalid username or password"}
+    if user.password != req.password:
+        return {"success": False, "message": "Invalid password. Please try again."}
+        
+    if user.access == "revoke" and req.username != "admin":
+        return {"success": False, "message": "Access revoked by admin"}
+    
+    access_token = create_access_token(data={"sub": user.username})
+    return {"success": True, "message": "Login successful", "access_token": access_token}
 
 
 
 
 from modules.resume_parser import parse_resume
-from modules.question_generator import generate_questions
+from modules.question_generator import generate_questions, classify_domain_and_source
+from modules.question_retriever import retrieve_semantic_questions
 from modules.answer_analyzer import analyze_answer
 from modules.whisper_transcriber import transcribe_audio
 import tempfile
@@ -205,6 +236,8 @@ from datetime import datetime
 async def upload_resume(
     resume: UploadFile = File(...),
     experience: str = Form("fresher"),
+    domain: str = Form(None),
+    source: str = Form(None),
     username: str = Form(None),
     db: Session = Depends(get_db)
 ):
@@ -231,7 +264,16 @@ async def upload_resume(
 
     parsed = parse_resume(fake_upload)
     skills = parsed.get("skills", ["Python"])
-    questions = generate_questions(skills, experience)
+
+    # Automatically classify domain and source if not explicitly passed by client
+    if not domain or not source:
+        detected_domain, detected_source = classify_domain_and_source(skills)
+        if not domain:
+            domain = detected_domain
+        if not source:
+            source = detected_source
+
+    questions = retrieve_semantic_questions(skills, experience, domain, source)
 
     # Update user's resume_path and experience in DB if user is logged in
     if username:
@@ -239,8 +281,25 @@ async def upload_resume(
         if user:
             user.resume_path = resume_path
             user.experience = experience
-            user.email = parsed.get("email")
-            user.phone = parsed.get("phone")
+            user.domain = domain
+            user.source = source
+            
+            email_val = parsed.get("email")
+            if isinstance(email_val, str):
+                user.email = email_val
+            elif isinstance(email_val, list) and email_val:
+                user.email = str(email_val[0])
+            else:
+                user.email = None
+                
+            phone_val = parsed.get("phone")
+            if isinstance(phone_val, str):
+                user.phone = phone_val
+            elif isinstance(phone_val, list) and phone_val:
+                user.phone = str(phone_val[0])
+            else:
+                user.phone = None
+                
             db.commit()
 
     return {"success": True, "questions": questions, "candidate_info": parsed}
@@ -290,22 +349,14 @@ async def analyze_answer_endpoint(
         else:
              video_url = f"/{perm_path}"
 
-    try:
-        if os.getenv("USE_CELERY") == "1":
-            # Option A: Synchronous Celery call
-            task = process_audio_transcription.delay(tmp_path)
-            result = task.get(timeout=60)
-            if result.get("success"):
-                answer_text = result.get("text")
-            else:
-                answer_text = "Error: " + str(result.get("error"))
-        else:
-            answer_text = transcribe_audio(tmp_path)
-    except Exception as e:
-        answer_text = "Answer could not be transcribed."
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+        try:
+            from fastapi.concurrency import run_in_threadpool
+            answer_text = await run_in_threadpool(transcribe_audio, tmp_path)
+        except Exception as e:
+            answer_text = "Answer could not be transcribed."
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
     # Calculate score
     score = analyze_answer(question, answer_text, emotion)
@@ -338,21 +389,24 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         if u.username == 'admin':
             continue
             
-        object_name = f"{u.username}_full_interview.webm"
+        safe_username = u.username.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        object_name = f"{safe_username}_full_interview.webm"
         if os.getenv("CLOUDINARY_CLOUD_NAME"):
             import cloudinary.utils
-            public_id = f"{u.username}_full_interview"
+            public_id = f"{safe_username}_full_interview"
             video_url = cloudinary.utils.cloudinary_url(public_id, resource_type="video", secure=True)[0]
         else:
             video_url = f"/static/videos/{object_name}" if os.path.exists(f"static/videos/{object_name}") else None
             
-        resume_url = f"/{u.resume_path}" if u.resume_path and os.path.exists(u.resume_path) else None
+        r_path = u.resume_path
+        resume_url = f"/{r_path}" if (isinstance(r_path, str) and os.path.exists(r_path)) else None  # type: ignore
         
         # Get all sessions for this user for the transcript
         user_sessions = db.query(InterviewSession).filter(InterviewSession.username == u.username).all()
         transcript = [{"q": s.question, "a": s.answer, "s": s.score, "v": s.video_url} for s in user_sessions]
 
         user_records[u.username] = {
+            "username": u.username,
             "candidate": u.username,
             "date": "Not Started",
             "time": "",
@@ -362,8 +416,10 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             "status": u.status,
             "access": u.access,
             "experience": u.experience or "N/A",
+            "domain": u.domain or "N/A",
+            "source": u.source or "N/A",
             "video_url": video_url,
-            "resume_path": u.resume_path if u.resume_path and os.path.exists(u.resume_path) else None,
+            "resume_path": r_path if (isinstance(r_path, str) and os.path.exists(r_path)) else None,  # type: ignore
             "email": u.email or "N/A",
             "phone": u.phone or "N/A",
             "integrity_notes": u.integrity_notes or "",
@@ -381,7 +437,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
                 user_records[u]["time"] = dt_parts[1] if len(dt_parts) > 1 else ""
                 user_records[u]["integrity"] = "Secure" # Reset from N/A to default Secure
             
-            user_records[u]["scores"].append(s.score)
+            user_records[u]["scores"].append(cast(float, s.score))
             user_records[u]["emotions"].append(s.emotion)
             
             # Use actual violation notes to determine integrity
@@ -392,7 +448,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             
     results = []
     for u, data in user_records.items():
-        avg_score = sum(data["scores"]) / len(data["scores"]) if data["scores"] else 0
+        avg_score = sum(data["scores"]) / len(data["scores"]) if data["scores"] else 0.0
         data["score"] = round(avg_score)
         
         # Calculate Primary Sentiment
@@ -415,7 +471,7 @@ async def get_result(db: Session = Depends(get_db), current_user: User = Depends
     if not sessions:
         return {"success": False, "message": "No interview session found."}
     
-    avg_score = sum(s.score for s in sessions) / len(sessions) if sessions else 0
+    avg_score = sum(cast(float, s.score) for s in sessions) / len(sessions) if sessions else 0.0
     
     # Calculate primary sentiment
     emotions = [s.emotion for s in sessions if s.emotion]
@@ -550,6 +606,48 @@ async def submit_reset(req: ResetSubmitRequest, db: Session = Depends(get_db)):
         db.commit()
         return {"success": True, "message": "Password updated successfully!"}
     return {"success": False, "message": "System error during reset."}
+
+@app.post("/api/webrtc/offer")
+async def webrtc_offer(params: dict):
+    sdp = params.get("sdp")
+    sdp_type = params.get("type")
+    
+    try:
+        from aiortc import RTCPeerConnection, RTCSessionDescription
+        from aiortc.contrib.media import MediaRecorder
+        
+        pc = RTCPeerConnection()
+        
+        os.makedirs("static/videos/answers", exist_ok=True)
+        recorder = MediaRecorder("static/videos/answers/temp_webrtc.webm")
+        
+        @pc.on("track")
+        def on_track(track):
+            print(f"Track {track.kind} received")
+            if track.kind in ["audio", "video"]:
+                recorder.addTrack(track)
+                
+        @pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            print(f"Connection state is {pc.connectionState}")
+            if pc.connectionState in ["failed", "closed"]:
+                await pc.close()
+                await recorder.stop()
+                
+        offer = RTCSessionDescription(sdp=sdp, type=sdp_type)
+        await pc.setRemoteDescription(offer)
+        await recorder.start()
+        
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        
+        return {
+            "sdp": pc.localDescription.sdp,
+            "type": pc.localDescription.type
+        }
+    except Exception as e:
+        print(f"WebRTC signaling failed: {e}. Returning fallback mock.")
+        return {"success": False, "message": f"WebRTC not supported on host backend: {e}"}
 
 if __name__ == "__main__":
     import uvicorn
