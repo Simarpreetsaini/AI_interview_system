@@ -315,12 +315,13 @@ input:focus {
 /* Page Footer Styling */
 .page-footer {
     text-align: center;
-    padding: 2rem 1rem 1rem 1rem;
-    font-size: 0.8rem;
+    padding: 1.5rem 0 0 0;
+    font-size: 0.7rem;
     color: var(--text-muted);
     border-top: 1px solid rgba(255, 255, 255, 0.03);
     margin-top: 2rem;
     width: 100%;
-    letter-spacing: 0.5px;
+    letter-spacing: 1.2px;
     font-weight: 500;
+    white-space: nowrap;
 }
