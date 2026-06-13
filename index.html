@@ -106,176 +106,134 @@
     </style>
 </head>
 <body>
-    <div class="portal-wrapper">
-        <div class="portal-grid">
-            <!-- Left Branding Column -->
-            <div class="portal-branding">
-                <div class="branding-content">
-                    <div class="logo-glow-wrapper">
-                        <img src="/static/images/logo.png" alt="AI Interview Logo" class="branding-logo">
-                    </div>
-                    <h2 class="branding-subtitle outfit">COGNITIVE ASSESSMENT ENGINE</h2>
-                    <h1 class="branding-title outfit">Next-Gen AI Interview Portal</h1>
-                    <p class="branding-desc">
-                        Calibrate your skills, engage with our real-time cognitive simulator, and get instant, deep evaluation reports.
-                    </p>
-                    
-                    <div class="features-list">
-                        <div class="feature-item">
-                            <span class="feature-icon">⚡</span>
-                            <div>
-                                <h4 class="outfit">Neural Skill Mapping</h4>
-                                <p>Dynamic question generation tailored directly to your resume dossier.</p>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <span class="feature-icon">🛡️</span>
-                            <div>
-                                <h4 class="outfit">Integrity Analysis</h4>
-                                <p>Real-time facial focus calibration and session switch detection.</p>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <span class="feature-icon">📊</span>
-                            <div>
-                                <h4 class="outfit">Instant Insights</h4>
-                                <p>Detailed performance reports, primary sentiment feedback, and scoring.</p>
-                            </div>
-                        </div>
-                    </div>
+    <div class="container">
+        <div class="card">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img src="/static/images/logo.png" alt="AI Interview Logo" style="width: 70px; height: 70px; border-radius: 50%; box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); border: 2px solid var(--primary-cyan); object-fit: cover;">
+            </div>
+            <div class="subtitle">AI INTERVIEW SIMULATION</div>
+            <h1 class="outfit">Talent Portal</h1>
+
+            <div id="user-status" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div style="text-align: left;">
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Session Active</div>
+                    <div style="color: #fff; font-size: 0.95rem; font-weight: 700;" id="logged-in-user"></div>
                 </div>
+                <button onclick="logout()" class="btn-outline btn-logout">Logout</button>
             </div>
             
-            <!-- Right Card Column -->
-            <div class="portal-form-container">
-                <div class="container">
-                    <div class="card">
-                        <div style="text-align: center; margin-bottom: 1.5rem;" class="mobile-only-logo">
-                            <img src="/static/images/logo.png" alt="AI Interview Logo" style="width: 70px; height: 70px; border-radius: 50%; box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); border: 2px solid var(--primary-cyan); object-fit: cover;">
-                        </div>
-                        <div class="subtitle">AI INTERVIEW SIMULATION</div>
-                        <h1 class="outfit">Talent Portal</h1>
+            <div class="tab-container">
+                <button class="tab active" onclick="switchTab('login')" id="tab-login">🔑 Sign In</button>
+                <button class="tab" onclick="switchTab('register')" id="tab-register">📝 Register</button>
+                <button class="tab" onclick="switchTab('results')" id="tab-results">📊 Results</button>
+            </div>
 
-                        <div id="user-status" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                            <div style="text-align: left;">
-                                <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Session Active</div>
-                                <div style="color: #fff; font-size: 0.95rem; font-weight: 700;" id="logged-in-user"></div>
-                            </div>
-                            <button onclick="logout()" class="btn-outline btn-logout">Logout</button>
-                        </div>
-                        
-                        <div class="tab-container">
-                            <button class="tab active" onclick="switchTab('login')" id="tab-login">🔑 Sign In</button>
-                            <button class="tab" onclick="switchTab('register')" id="tab-register">📝 Register</button>
-                            <button class="tab" onclick="switchTab('results')" id="tab-results">📊 Results</button>
-                        </div>
-
-                        <div id="login-form">
-                            <div class="input-group">
-                                <label class="input-label">Username</label>
-                                <input type="text" id="login-username" placeholder="Enter your ID">
-                            </div>
-                            <div class="input-group">
-                                <label class="input-label">Password</label>
-                                <input type="password" id="login-password" placeholder="••••••••">
-                            </div>
-                            <button class="btn btn-primary" onclick="login()">Access Portal 🔒</button>
-                            <div style="text-align: center; margin-top: 1rem;">
-                                <a href="javascript:void(0)" onclick="switchTab('forgot')" style="color: var(--text-muted); font-size: 0.8rem;">Forgot Password?</a>
-                            </div>
-                        </div>
-
-                        <div id="post-login-options" style="display: none; margin-top: 2rem; text-align: center;">
-                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem;">
-                                <div class="spinner"></div>
-                                <p style="color: var(--text-muted); font-size: 0.85rem;">Retrieving your session status...</p>
-                            </div>
-                        </div>
-
-                        <div id="register-form" style="display: none;">
-                            <div class="input-group">
-                                <label class="input-label">Username</label>
-                                <input type="text" id="reg-username" placeholder="Choose a name">
-                            </div>
-                            <div class="input-group">
-                                <label class="input-label">Password</label>
-                                <input type="password" id="reg-password" placeholder="••••••••">
-                            </div>
-                            <div class="input-group">
-                                <label class="input-label">Confirm Password</label>
-                                <input type="password" id="reg-confirm" placeholder="••••••••">
-                            </div>
-                            <button class="btn btn-primary" onclick="register()">Create Account</button>
-                        </div>
-
-                        <div id="results-view" style="display: none; margin-top: 1rem;">
-                            <div id="result-display" style="display: block; width: 100%;">
-                                <div id="status-chips-container" style="margin-bottom: 1rem;"></div>
-                                
-                                <div id="results-stats-grid" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                    <div class="box" style="text-align: center; padding: 0.8rem;">
-                                        <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Final Score</div>
-                                        <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-cyan); line-height: 1;"><span id="result-score">--</span>%</div>
-                                        <div id="result-badge-container" style="margin-top: 0.5rem;">
-                                            <span id="result-badge" class="status-badge status-pending" style="font-size: 0.65rem; padding: 4px 10px;">Pending</span>
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; flex-direction: column; gap: 0.8rem;">
-                                        <div class="box" style="padding: 0.8rem;">
-                                            <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">INTEGRITY</div>
-                                            <div id="result-integrity" style="font-weight: 700; font-size: 0.9rem;">--</div>
-                                        </div>
-                                        <div class="box" style="padding: 0.8rem;">
-                                            <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">SENTIMENT</div>
-                                            <div id="result-sentiment" style="font-weight: 700; font-size: 0.9rem;">--</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="box">
-                                    <h3 id="result-title" style="margin-bottom: 1rem;">Evaluation Report</h3>
-                                    <div id="result-message" class="message-box" style="padding: 0; background: none; font-size: 0.9rem;">
-                                        Parsing simulation logs...
-                                    </div>
-                                </div>
-
-                                <button onclick="window.print()" class="btn-outline" style="margin-top: 1.5rem; width: 100%;">Download PDF Report</button>
-                            </div>
-                        </div>
-
-                        <div id="forgot-form" style="display: none; margin-top: 2rem;">
-                            <h3 style="margin-bottom: 1rem;">Reset Password</h3>
-                            <div id="forgot-step1">
-                                <div class="input-group">
-                                    <label class="input-label">Username</label>
-                                    <input type="text" id="forgot-username">
-                                </div>
-                                <div class="input-group">
-                                    <label class="input-label">Email in Resume</label>
-                                    <input type="email" id="forgot-email">
-                                </div>
-                                <button class="btn btn-primary" onclick="verifyReset()">Verify Identity ❤️</button>
-                            </div>
-                            <div id="forgot-step2" style="display: none;">
-                                <div class="input-group">
-                                    <label class="input-label">New Password</label>
-                                    <input type="password" id="forgot-new-password">
-                                </div>
-                                <div class="input-group">
-                                    <label class="input-label">Confirm Password</label>
-                                    <input type="password" id="forgot-confirm-password">
-                                </div>
-                                <button class="btn btn-primary" onclick="submitReset()">Update Password</button>
-                            </div>
-                            <div style="text-align: center; margin-top: 1rem;">
-                                <a href="javascript:void(0)" onclick="switchTab('login')" style="color: var(--text-muted); font-size: 0.8rem;">Back to Login</a>
-                            </div>
-                        </div>
-
-                        <p id="msg" style="margin-top: 1.5rem; font-size: 0.9rem; min-height: 1.2em; transition: all 0.3s;"></p>
-                    </div>
+            <div id="login-form">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your ID">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" onclick="login()">Access Portal 🔒</button>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="javascript:void(0)" onclick="switchTab('forgot')" style="color: var(--text-muted); font-size: 0.8rem;">Forgot Password?</a>
                 </div>
             </div>
+
+            <div id="post-login-options" style="display: none; margin-top: 2rem; text-align: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem;">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Retrieving your session status...</p>
+                </div>
+            </div>
+
+            <div id="register-form" style="display: none;">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="reg-username" placeholder="Choose a name">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="reg-password" placeholder="••••••••">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Confirm Password</label>
+                    <input type="password" id="reg-confirm" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" onclick="register()">Create Account</button>
+            </div>
+
+            <div id="results-view" style="display: none; margin-top: 1rem;">
+                <div id="result-display" style="display: block; width: 100%;">
+                    <div id="status-chips-container" style="margin-bottom: 1rem;"></div>
+                    
+                    <div id="results-stats-grid" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="box" style="text-align: center; padding: 0.8rem;">
+                            <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Final Score</div>
+                            <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-cyan); line-height: 1;"><span id="result-score">--</span>%</div>
+                            <div id="result-badge-container" style="margin-top: 0.5rem;">
+                                <span id="result-badge" class="status-badge status-pending" style="font-size: 0.65rem; padding: 4px 10px;">Pending</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <div class="box" style="padding: 0.8rem;">
+                                <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">INTEGRITY</div>
+                                <div id="result-integrity" style="font-weight: 700; font-size: 0.9rem;">--</div>
+                            </div>
+                            <div class="box" style="padding: 0.8rem;">
+                                <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">SENTIMENT</div>
+                                <div id="result-sentiment" style="font-weight: 700; font-size: 0.9rem;">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <div class="box">
+                        <h3 id="result-title" style="margin-bottom: 1rem;">Evaluation Report</h3>
+                        <div id="result-message" class="message-box" style="padding: 0; background: none; font-size: 0.9rem;">
+                            Parsing simulation logs...
+                        </div>
+                    </div>
+
+                    <button onclick="window.print()" class="btn-outline" style="margin-top: 1.5rem; width: 100%;">Download PDF Report</button>
+                </div>
+            </div>
+
+            <div id="forgot-form" style="display: none; margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem;">Reset Password</h3>
+                <div id="forgot-step1">
+                    <div class="input-group">
+                        <label class="input-label">Username</label>
+                        <input type="text" id="forgot-username">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Email in Resume</label>
+                        <input type="email" id="forgot-email">
+                    </div>
+                    <button class="btn btn-primary" onclick="verifyReset()">Verify Identity ❤️</button>
+                </div>
+                <div id="forgot-step2" style="display: none;">
+                    <div class="input-group">
+                        <label class="input-label">New Password</label>
+                        <input type="password" id="forgot-new-password">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Confirm Password</label>
+                        <input type="password" id="forgot-confirm-password">
+                    </div>
+                    <button class="btn btn-primary" onclick="submitReset()">Update Password</button>
+                </div>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="javascript:void(0)" onclick="switchTab('login')" style="color: var(--text-muted); font-size: 0.8rem;">Back to Login</a>
+                </div>
+            </div>
+
+            
+            <p id="msg" style="margin-top: 1.5rem; font-size: 0.9rem; min-height: 1.2em; transition: all 0.3s;"></p>
         </div>
         <footer class="page-footer">
             &copy; 2026 Simarpreet Singh. Designed & Built with passion.
@@ -325,21 +283,17 @@
             document.getElementById('post-login-options').style.display = 'none';
             document.getElementById('msg').innerText = '';
 
-            const grid = document.querySelector('.portal-grid');
-
             if (tab === 'results') {
                 if (!localStorage.getItem('access_token')) {
                     alert("⛔ Login Required !!!");
                     switchTab('login');
                     return;
                 }
-                if (grid) grid.classList.add('results-active');
                 document.getElementById('tab-results').classList.add('active');
                 document.getElementById('results-view').style.display = 'block';
                 document.querySelector('.container').style.maxWidth = '800px';
                 checkResult();
             } else if (tab === 'login') {
-                if (grid) grid.classList.remove('results-active');
                 document.querySelector('.container').style.maxWidth = '480px';
                 document.getElementById('tab-login').classList.add('active');
                 if (localStorage.getItem('access_token')) {
@@ -349,12 +303,10 @@
                     document.getElementById('login-form').style.display = 'block';
                 }
             } else if (tab === 'forgot') {
-                if (grid) grid.classList.remove('results-active');
                 document.getElementById('forgot-form').style.display = 'block';
                 document.getElementById('forgot-step1').style.display = 'block';
                 document.getElementById('forgot-step2').style.display = 'none';
             } else {
-                if (grid) grid.classList.remove('results-active');
                 document.getElementById('tab-register').classList.add('active');
                 document.getElementById('register-form').style.display = 'block';
             }

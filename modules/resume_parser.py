@@ -24,10 +24,15 @@ def extract_text_from_pdf(file):
 def parse_resume(file):
     # Extract text
     filename = getattr(file, 'filename', getattr(file, 'name', ''))
-    if filename.endswith(".pdf"):
-        text = extract_text_from_pdf(file.file)
-    else:
-        text = file.file.read().decode()
+    text = ""
+    try:
+        if filename.endswith(".pdf"):
+            text = extract_text_from_pdf(file.file)
+        else:
+            text = file.file.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        print(f"Error parsing resume {filename}: {e}")
+        text = ""
 
     text_lower = text.lower()
     detected_skills = []

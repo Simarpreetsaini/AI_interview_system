@@ -414,6 +414,9 @@
 
             try {
                 const res = await fetch('/api/upload_resume', { method: 'POST', body: formData });
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
                 const data = await res.json();
                 
                 if(data.success) {
@@ -439,8 +442,15 @@
                     
                     document.getElementById('sim-ready-msg').style.display = 'block';
                     questions = data.questions || [];
+                } else {
+                    document.getElementById('file-label').innerText = "Click to upload PDF Resume";
+                    showToast("⚠️ Upload Failed: " + (data.message || "Unknown error"));
                 }
-            } catch(e) { showToast("⚠️ Matrix Sync Error"); }
+            } catch(e) {
+                document.getElementById('file-label').innerText = "Click to upload PDF Resume";
+                showToast("⚠️ Matrix Sync Error");
+                console.error(e);
+            }
         }
 
         function logout() {
