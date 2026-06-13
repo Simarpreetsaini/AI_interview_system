@@ -118,7 +118,17 @@ init_admin()
 ffmpeg_path = os.path.join(os.getcwd(), "ffmpeg-2026-03-12-git-9dc44b43b2-essentials_build", "bin")
 os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Advanced AI Interview System")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex="https?://.*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 SECRET_KEY = "advanced-ai-interview-system-secure-32-byte-key-2026"
 ALGORITHM = "HS256"

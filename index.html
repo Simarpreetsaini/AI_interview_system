@@ -283,6 +283,11 @@
     </div>
 
     <script>
+        const API_BASE = localStorage.getItem('api_base') || 
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? (window.location.port === '8000' ? '' : 'http://localhost:8000')
+                : 'https://ai-interview-system.onrender.com');
+
         window.onload = () => {
             const token = localStorage.getItem('access_token');
             const user = localStorage.getItem('username');
@@ -375,7 +380,7 @@
             `;
 
             try {
-                const res = await fetch('/api/get_result', {
+                const res = await fetch(API_BASE + '/api/get_result', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -438,7 +443,7 @@
                 return;
             }
 
-            const res = await fetch('/api/login', {
+            const res = await fetch(API_BASE + '/api/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})
@@ -482,7 +487,7 @@
             if (!u || !p) { showMessage("Please fill all fields", "#ef4444"); return; }
             if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
 
-            const res = await fetch('/api/register', {
+            const res = await fetch(API_BASE + '/api/register', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})
@@ -511,7 +516,7 @@
             const token = localStorage.getItem('access_token');
             if (!token) return;
 
-            const res = await fetch('/api/get_result', {
+            const res = await fetch(API_BASE + '/api/get_result', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -644,7 +649,7 @@
             const u = raw_u ? raw_u.trim() : '';
             const e = document.getElementById('forgot-email').value;
             
-            const res = await fetch('/api/verify_reset', {
+            const res = await fetch(API_BASE + '/api/verify_reset', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, email: e})
@@ -667,7 +672,7 @@
 
             if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
 
-            const res = await fetch('/api/submit_reset', {
+            const res = await fetch(API_BASE + '/api/submit_reset', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})

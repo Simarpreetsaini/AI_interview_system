@@ -318,7 +318,10 @@
     </div>
 
     <script>
-
+        const API_BASE = localStorage.getItem('api_base') || 
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? (window.location.port === '8000' ? '' : 'http://localhost:8000')
+                : 'https://ai-interview-system.onrender.com');
 
         let questions = [];
         let currentQIndex = -1;
@@ -371,7 +374,7 @@
             
             // Check candidate status and interview presence
             try {
-                const res = await fetch('/api/get_result', {
+                const res = await fetch(API_BASE + '/api/get_result', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -415,7 +418,7 @@
             formData.append("username", localStorage.getItem('username'));
 
             try {
-                const res = await fetch('/api/upload_resume', { method: 'POST', body: formData });
+                const res = await fetch(API_BASE + '/api/upload_resume', { method: 'POST', body: formData });
                 if (!res.ok) {
                     throw new Error(`HTTP error! status: ${res.status}`);
                 }
@@ -911,7 +914,7 @@
             }
 
             // We send it to the endpoint that handles scoring and DB saving
-            const res = await fetch('/api/process_audio', {
+            const res = await fetch(API_BASE + '/api/process_audio', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
                 body: formData
@@ -1033,7 +1036,7 @@
 
                 if (tabWarn >= 3) {
                     note = "Session terminated: Tab Switching limit (3 times) exceeded.";
-                    fetch('/api/log_violation', {
+                    fetch(API_BASE + '/api/log_violation', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1098,7 +1101,7 @@
             }
             
             // Log violation to backend
-            fetch('/api/log_violation', {
+            fetch(API_BASE + '/api/log_violation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: localStorage.getItem('username'), reason: note })
@@ -1168,7 +1171,7 @@
                             formData.append('username', localStorage.getItem('username'));
                             
                             // Send full video upload
-                            await fetch('/api/upload_full_video', {
+                            await fetch(API_BASE + '/api/upload_full_video', {
                                 method: 'POST',
                                 body: formData
                             });
@@ -1211,7 +1214,7 @@
                     formData.append('video', blob);
                     formData.append('username', localStorage.getItem('username'));
                     
-                    await fetch('/api/upload_full_video', {
+                    await fetch(API_BASE + '/api/upload_full_video', {
                         method: 'POST',
                         body: formData
                     });
