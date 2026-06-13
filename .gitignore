@@ -33,3 +33,4 @@ scratch/
 # User uploads & static media
 static/resumes/
 static/videos/
+.vercel
