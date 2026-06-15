@@ -16,9 +16,18 @@ from database import engine, get_db, Base, SessionLocal
 from models import User, InterviewSession
 import models
 from storage import upload_file_to_storage
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Setup a fallback/fixed SQLite session to merge data from local SQLite
+sqlite_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "interview_system.db"))
+sqlite_url = f"sqlite:///{sqlite_file_path}"
+sqlite_engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+SqliteSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sqlite_engine)
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=sqlite_engine)
 
 # ─── SQLite column migration (add new columns if they don't exist) ────────────
 def migrate_db():
@@ -499,8 +508,32 @@ async def analyze_answer_endpoint(
 
 @app.get("/api/get_all_records")
 async def get_all_records(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    sessions = db.query(InterviewSession).all()
-    users = db.query(User).all()
+    primary_users = db.query(User).all()
+    primary_sessions = db.query(InterviewSession).all()
+    
+    users = list(primary_users)
+    sessions = list(primary_sessions)
+    
+    # Merge candidates from SQLite if primary database is PostgreSQL
+    if engine.dialect.name == "postgresql":
+        sqlite_db = SqliteSessionLocal()
+        try:
+            sqlite_users = sqlite_db.query(User).all()
+            sqlite_sessions = sqlite_db.query(InterviewSession).all()
+            
+            primary_user_names = {u.username.strip().lower() for u in primary_users}
+            for u in sqlite_users:
+                if u.username.strip().lower() not in primary_user_names:
+                    sqlite_db.expunge(u)
+                    users.append(u)
+            
+            for s in sqlite_sessions:
+                sqlite_db.expunge(s)
+                sessions.append(s)
+        except Exception as e:
+            print(f"Warning: Failed to fetch SQLite records for admin dashboard: {e}")
+        finally:
+            sqlite_db.close()
     
     # Group sessions by username in memory to avoid N+1 queries and full table scans
     sessions_by_user = {}
@@ -716,22 +749,47 @@ class AdminActionRequest(BaseModel):
 
 @app.post("/api/admin_action")
 async def admin_action(req: AdminActionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user = db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
+    username_lower = req.username.strip().lower()
     
-    if user:
+    # Try to find and update in primary DB
+    primary_user = db.query(User).filter(func.lower(User.username) == username_lower).first()
+    updated = False
+    
+    if primary_user:
         if req.action == "delete":
-            # Delete all interview records for this user to avoid foreign key constraints
-            db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(req.username.strip())).delete()
-            # Delete the user account
-            db.delete(user)
+            db.query(InterviewSession).filter(func.lower(InterviewSession.username) == username_lower).delete()
+            db.delete(primary_user)
         elif req.action in ["approve", "reject"]:
-            user.status = "Approved" if req.action == "approve" else "Rejected"
+            primary_user.status = "Approved" if req.action == "approve" else "Rejected"
         elif req.action in ["revoke", "grant"]:
-            user.access = req.action
-            
+            primary_user.access = req.action
         db.commit()
+        updated = True
+        
+    # Also update in SQLite DB if primary is PostgreSQL
+    if engine.dialect.name == "postgresql":
+        sqlite_db = SqliteSessionLocal()
+        try:
+            sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == username_lower).first()
+            if sqlite_user:
+                if req.action == "delete":
+                    sqlite_db.query(InterviewSession).filter(func.lower(InterviewSession.username) == username_lower).delete()
+                    sqlite_db.delete(sqlite_user)
+                elif req.action in ["approve", "reject"]:
+                    sqlite_user.status = "Approved" if req.action == "approve" else "Rejected"
+                elif req.action in ["revoke", "grant"]:
+                    sqlite_user.access = req.action
+                sqlite_db.commit()
+                updated = True
+        except Exception as e:
+            sqlite_db.rollback()
+            print(f"Warning: Failed SQLite admin action: {e}")
+        finally:
+            sqlite_db.close()
+            
+    if updated:
         return {"success": True}
-    return {"success": False, "message": "User not found"}
+    return {"success": False, "message": "User not found in either database"}
 
 
 @app.post("/api/delete_all_candidates")
@@ -745,6 +803,20 @@ async def delete_all_candidates(db: Session = Depends(get_db), current_user: Use
         # Delete all users who are not the admin
         db.query(User).filter(func.lower(User.username) != "admin").delete()
         db.commit()
+        
+        # Delete from SQLite database if primary is PostgreSQL
+        if engine.dialect.name == "postgresql":
+            sqlite_db = SqliteSessionLocal()
+            try:
+                sqlite_db.query(InterviewSession).delete()
+                sqlite_db.query(User).filter(func.lower(User.username) != "admin").delete()
+                sqlite_db.commit()
+            except Exception as e:
+                sqlite_db.rollback()
+                print(f"Warning: Failed to delete all records from SQLite: {e}")
+            finally:
+                sqlite_db.close()
+                
         return {"success": True, "message": "All candidate records deleted successfully."}
     except Exception as e:
         db.rollback()
