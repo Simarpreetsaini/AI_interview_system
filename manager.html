@@ -283,7 +283,8 @@
             if (user !== 'admin' || !token) {
                 window.location.href = '/index.html';
             } else {
-                pingBackend().then(() => loadRecords());
+                pingBackend();
+                loadRecords();
             }
         };
 
