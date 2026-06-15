@@ -601,6 +601,7 @@
         let modelsFailed = false;
         let pendingAnalysisCount = 0;
         let isFinished = false;
+        let faceMissingCount = 0;
 
         async function loadFaceAPIModels() {
             try {
@@ -1410,7 +1411,7 @@
                 return;
             }
             
-            // 2. Face & Multi-person Detection
+            // 2. Face & Multi-person Detection (Optimized single-pass detection)
             setInterval(async () => {
                 if(!isSimActive) return;
                 try {
@@ -1420,12 +1421,25 @@
                         return;
                     }
                     
-                    // Switching to SsdMobilenetv1 for higher accuracy (deeper CNN model)
-                    const detection = await faceapi.detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
+                    // Run face detection ONCE for all faces with expressions (single-pass optimization)
+                    const detections = await faceapi.detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
                     
-                    if(!detection) {
-                        triggerWarning('face');
+                    if (!detections || detections.length === 0) {
+                        faceMissingCount++;
+                        // Debounce: require 2 consecutive missed detections (4s total) before triggering face out of view
+                        if (faceMissingCount >= 2) {
+                            triggerWarning('face');
+                        }
                     } else {
+                        faceMissingCount = 0;
+                        
+                        // Check for multi-person warning
+                        if (detections.length > 1) {
+                            triggerWarning('multi-person');
+                        }
+                        
+                        // Use the first face for expression/neural matrix mapping
+                        const detection = detections[0];
                         const expressions = {...detection.expressions};
                         
                         // Ultra-Boost for Visibility
@@ -1478,12 +1492,8 @@
                         document.getElementById('emotion-display').innerText = smoothedTop.toUpperCase();
                     }
 
-                    // Check for multi-person separately if needed, or stick to single face detection
-                    const allDetections = await faceapi.detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }));
-                    if (allDetections.length > 1) triggerWarning('multi-person');
-
                 } catch(e) { console.warn("Detection error", e); }
-            }, 1000); // Increased frequency to 1s
+            }, 2000); // Optimized to 2s to reduce CPU load and prevent main thread blocking
         }
 
         function triggerWarning(type) {
