@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+
+# Python caching & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+venv_old/
+env/
+ENV/
+
+# Configuration and secrets
+.env
+.env.*
+
+# Local databases
+*.db
+*.sqlite3
+
+# IDEs and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Frontend dependencies and builds
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vercel/
+
+# Heavy media files and local binaries
+ffmpeg-*/
+*.mp4
+*.webm
+*.wav
+*.mp3
+*.avi
+og-image.png
+thumbnail.png
+
+# User uploads, temporary, and data files
+static/resumes/
+static/videos/
+data/
+scratch/
+
+# Deployment & Docker configurations (not needed inside the container)
+Dockerfile
+docker-compose.yml
+render.yaml
+vercel.json
