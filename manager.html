@@ -319,6 +319,19 @@
             hideServerWakeupBanner();
             const data = await res.json();
             
+            if (res.status === 401 || data.detail || (data.success === false)) {
+                alert("⛔ Session expired or access denied. Please log in again.");
+                localStorage.clear();
+                window.location.href = '/index.html';
+                return;
+            }
+            
+            // Ensure data is an array
+            if (!Array.isArray(data)) {
+                showToast("Received invalid data from server.");
+                return;
+            }
+            
             const table = document.getElementById('records-table');
             table.innerHTML = '';
             
