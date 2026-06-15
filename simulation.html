@@ -1148,14 +1148,43 @@
                 }
             };
 
+            let hasFatalError = false;
+            let lastErrorTime = 0;
+            let consecutiveErrorCount = 0;
+
             activeRecognition.onerror = (event) => {
                 if (window.recognition !== activeRecognition) return;
                 console.error("Speech Recognition Error:", event.error);
+                
+                const now = Date.now();
+                if (now - lastErrorTime < 1000) {
+                    consecutiveErrorCount++;
+                } else {
+                    consecutiveErrorCount = 1;
+                }
+                lastErrorTime = now;
+
                 if (event.error === 'not-allowed') {
+                    hasFatalError = true;
                     showToast("⚠️ Microphone access or speech permission is blocked. Please check site permissions. We recommend Google Chrome or Microsoft Edge.");
                     showTypeFallback();
+                } else if (event.error === 'audio-capture') {
+                    hasFatalError = true;
+                    showToast("⚠️ Microphone capture failed. Ensure your microphone is connected and not in use by another tab or application.");
+                    showTypeFallback();
+                } else if (event.error === 'service-not-allowed' || event.error === 'language-not-supported') {
+                    hasFatalError = true;
+                    showToast("⚠️ Speech recognition service not allowed or language not supported in this browser.");
+                    showTypeFallback();
                 } else if (event.error === 'network') {
-                    console.warn("Speech recognition network error. Reconnecting...");
+                    console.warn("Speech recognition network error.");
+                }
+
+                // If we get too many errors too quickly, stop to prevent CPU/network thrashing
+                if (consecutiveErrorCount > 10) {
+                    console.warn("Too many rapid SpeechRecognition errors. Stopping recognition.");
+                    hasFatalError = true;
+                    showTypeFallback();
                 }
             };
 
@@ -1163,12 +1192,12 @@
                 try {
                     activeRecognition.start();
                 } catch(e) {
-                    console.warn("SpeechRecognition start failed, retrying in 300ms...", e);
+                    console.warn("SpeechRecognition start failed, retrying in 500ms...", e);
                     setTimeout(() => {
-                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0) {
+                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0 && !hasFatalError) {
                             tryStart();
                         }
-                    }, 300);
+                    }, 500);
                 }
             };
 
@@ -1181,12 +1210,13 @@
                     sessionFinalTranscript = '';
                 }
                 
-                if (isSimActive && isAnswering && qTimeLeft > 0) {
+                if (isSimActive && isAnswering && qTimeLeft > 0 && !hasFatalError) {
+                    // Introduce a larger, safer delay (500ms) to allow audio context release and prevent loop thrashing
                     setTimeout(() => {
-                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0) {
+                        if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0 && !hasFatalError) {
                             tryStart();
                         }
-                    }, 100);
+                    }, 500);
                 }
             };
 
