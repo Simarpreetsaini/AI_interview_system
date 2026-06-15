@@ -635,7 +635,7 @@
             }
         }
 
-        window.onload = async () => {
+        window.onload = () => {
             const token = localStorage.getItem('access_token');
             const user = localStorage.getItem('username');
             if (!token || !user) {
@@ -647,51 +647,85 @@
             // Ping Render backend in background to wake it up early
             pingBackend();
             
-            // Check candidate status and interview presence
-            try {
-                const res = await fetchWithRetry(getApiUrl('/api/get_result'), {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (data.has_interview) {
-                        if (data.status === "Pending") {
-                            alert("⏳ Your interview is currently pending admin review. You cannot retake it at this time.");
-                        } else {
-                            alert("📊 Your interview evaluation is complete. You cannot enter the interview room.");
-                        }
-                        window.location.href = '/index.html?show_results=1';
-                        return;
-                    }
-                    
-                    if (data.age) {
-                        document.getElementById('cand-age').value = data.age;
-                    }
-                    if (data.experience) {
-                        document.getElementById('cand-exp').value = data.experience;
-                    }
-                    
-                    // If age and experience were pre-filled, skip Phase 1
-                    if (data.age) {
-                        document.getElementById('phase1').style.display = 'none';
-                        document.getElementById('phase2').style.display = 'block';
-                        document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
-                    }
-                }
-            } catch (err) {
-                console.error("Error checking interview status:", err);
-            }
-            
-            // Start background calibration of FaceAPI models
+            // Start background calibration of FaceAPI models immediately
             loadFaceAPIModels();
+            
+            // Check candidate status and interview presence asynchronously (non-blocking)
+            fetchWithRetry(getApiUrl('/api/get_result'), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.success) {
+                      if (data.has_interview) {
+                          if (data.status === "Pending") {
+                              alert("⏳ Your interview is currently pending admin review. You cannot retake it at this time.");
+                          } else {
+                              alert("📊 Your interview evaluation is complete. You cannot enter the interview room.");
+                          }
+                          window.location.href = '/index.html?show_results=1';
+                          return;
+                      }
+                      
+                      if (data.age) {
+                          document.getElementById('cand-age').value = data.age;
+                      }
+                      if (data.experience) {
+                          document.getElementById('cand-exp').value = data.experience;
+                      }
+                      
+                      // If age and experience were pre-filled, skip Phase 1
+                      if (data.age) {
+                          document.getElementById('phase1').style.display = 'none';
+                          document.getElementById('phase2').style.display = 'block';
+                          document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
+                      }
+                  }
+              })
+              .catch(err => {
+                  console.error("Error checking interview status:", err);
+              });
         };
 
         async function goToPhase2() {
             const age = document.getElementById('cand-age').value;
+            const exp = document.getElementById('cand-exp').value;
             if(!age) { showToast("⚠️ Age is required for calibration."); return; }
-            document.getElementById('phase1').style.display = 'none';
-            document.getElementById('phase2').style.display = 'block';
-            document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
+            
+            // Show a temporary loading state on the button
+            const btn = document.querySelector('#phase1 .btn-primary');
+            const originalText = btn ? btn.innerText : "Initialize Matrix ➡";
+            if (btn) {
+                btn.innerText = "Saving Profile...";
+                btn.disabled = true;
+            }
+            
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(getApiUrl('/api/update_profile'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ age: parseInt(age), experience: exp })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('phase1').style.display = 'none';
+                    document.getElementById('phase2').style.display = 'block';
+                    document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
+                } else {
+                    showToast("⚠️ Update Failed: " + (data.message || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Error updating profile:", err);
+                showToast("⚠️ Connection error saving profile.");
+            } finally {
+                if (btn) {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            }
         }
 
         async function handleResumeUpload() {
@@ -703,8 +737,11 @@
             const formData = new FormData();
             formData.append("resume", file);
             formData.append("experience", document.getElementById('cand-exp').value);
-
             formData.append("username", localStorage.getItem('username'));
+            const ageVal = document.getElementById('cand-age').value;
+            if (ageVal) {
+                formData.append("age", ageVal);
+            }
 
             try {
                 const res = await fetch(getApiUrl('/api/upload_resume'), { method: 'POST', body: formData });

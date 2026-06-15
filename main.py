@@ -274,6 +274,18 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     return {"success": True, "message": "Login successful", "access_token": access_token}
 
 
+class UpdateProfileRequest(BaseModel):
+    age: int
+    experience: str
+
+@app.post("/api/update_profile")
+async def update_profile(req: UpdateProfileRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.age = req.age
+    current_user.experience = req.experience
+    db.commit()
+    return {"success": True, "message": "Profile updated successfully"}
+
+
 
 
 from modules.resume_parser import parse_resume
@@ -318,6 +330,7 @@ async def upload_resume(
     domain: str = Form(None),
     source: str = Form(None),
     username: str = Form(None),
+    age: int = Form(None),
     db: Session = Depends(get_db)
 ):
     # Save the resume file to disk
@@ -378,6 +391,8 @@ async def upload_resume(
             user.domain = domain
             user.source = source
             user.skills = ", ".join(skills) if isinstance(skills, list) else str(skills)
+            if age is not None:
+                user.age = age
             
             email_val = parsed.get("email")
             if isinstance(email_val, str):
