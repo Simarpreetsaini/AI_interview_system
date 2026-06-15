@@ -16,45 +16,75 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://ai-interview-system-remk.onrender.com/api/:path*"
+      "destination": "https://ai-interview-system-1-sfxr.onrender.com/api/:path*"
     },
     {
       "source": "/static/resumes/:path*",
-      "destination": "https://ai-interview-system-remk.onrender.com/static/resumes/:path*"
+      "destination": "https://ai-interview-system-1-sfxr.onrender.com/static/resumes/:path*"
     },
     {
       "source": "/static/videos/:path*",
-      "destination": "https://ai-interview-system-remk.onrender.com/static/videos/:path*"
+      "destination": "https://ai-interview-system-1-sfxr.onrender.com/static/videos/:path*"
     }
   ],
   "headers": [
     {
       "source": "/static/images/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
-        { "key": "Content-Type", "value": "image/png" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/png"
+        }
       ]
     },
     {
       "source": "/favicon.ico",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" },
-        { "key": "Content-Type", "value": "image/png" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/png"
+        }
       ]
     },
     {
       "source": "/favicon.png",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" },
-        { "key": "Content-Type", "value": "image/png" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/png"
+        }
       ]
     },
     {
       "source": "/thumbnail.png",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
-        { "key": "Content-Type", "value": "image/png" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/png"
+        }
       ]
     }
-  ]
+  ],
+  "experimentalServices": {
+    "ai-interview-system": {
+      "type": "web",
+      "routePrefix": "/"
+    }
+  }
 }
