@@ -143,113 +143,248 @@ def parse_resume(file):
     # Qualifications: Improved extraction to capture full degree name
     qualifications = []
     
-    # Custom degree mapping based on the user's specific request list
+    # Custom degree mapping based on the user's specific request list (ordered with specializations first)
     degree_mapping = [
-        ("B.Tech (Bachelor of Technology)", ["b.tech", "bachelor of technology"]),
-        ("B.E. (Bachelor of Engineering)", ["b.e.", "bachelor of engineering"]),
-        ("B.Tech CSE (Computer Science and Engineering)", ["b.tech cse", "b.tech computer science and engineering", "b.tech computer science", "bachelor of technology in computer science"]),
-        ("B.Tech IT (Information Technology)", ["b.tech it", "b.tech information technology", "bachelor of technology in information technology"]),
-        ("B.Tech ECE (Electronics and Communication Engineering)", ["b.tech ece", "b.tech electronics and communication engineering", "b.tech electronics & communication", "bachelor of technology in electronics"]),
-        ("B.Tech EEE (Electrical and Electronics Engineering)", ["b.tech eee", "b.tech electrical and electronics engineering", "b.tech electrical & electronics", "bachelor of technology in electrical"]),
-        ("B.Tech ME (Mechanical Engineering)", ["b.tech me", "b.tech mechanical engineering", "bachelor of technology in mechanical"]),
-        ("B.Tech CE (Civil Engineering)", ["b.tech ce", "b.tech civil engineering", "bachelor of technology in civil"]),
-        ("B.Tech AI & ML (Artificial Intelligence and Machine Learning)", ["b.tech ai & ml", "b.tech ai and ml", "b.tech aiml", "b.tech artificial intelligence"]),
-        ("B.Tech Data Science", ["b.tech data science"]),
-        ("B.Tech Cyber Security", ["b.tech cyber security", "b.tech cybersecurity"]),
-        ("B.Tech Biotechnology", ["b.tech biotechnology"]),
-        ("B.Tech Chemical Engineering", ["b.tech chemical engineering"]),
-        ("B.Tech Aerospace Engineering", ["b.tech aerospace engineering"]),
-        ("B.Tech Automobile Engineering", ["b.tech automobile engineering"]),
-        ("B.Tech Agricultural Engineering", ["b.tech agricultural engineering"]),
-        ("B.Tech Environmental Engineering", ["b.tech environmental engineering"]),
-        ("B.Tech Mining Engineering", ["b.tech mining engineering"]),
-        ("B.Tech Petroleum Engineering", ["b.tech petroleum engineering"]),
-        ("B.Tech Food Technology", ["b.tech food technology"]),
-        ("Computer & IT", ["computer & it", "computer and it"]),
-        ("BCA (Bachelor of Computer Applications)", ["bca", "bachelor of computer applications"]),
-        ("B.Sc Computer Science", ["b.sc computer science", "bsc computer science", "b.sc cse", "bsc cse"]),
-        ("B.Sc Information Technology", ["b.sc information technology", "bsc information technology", "b.sc it", "bsc it"]),
-        ("B.Sc Data Science", ["b.sc data science", "bsc data science"]),
-        ("B.Sc Artificial Intelligence", ["b.sc artificial intelligence", "bsc artificial intelligence"]),
-        ("B.Sc Cyber Security", ["b.sc cyber security", "bsc cyber security", "b.sc cybersecurity", "bsc cybersecurity"]),
-        ("B.Sc Software Engineering", ["b.sc software engineering", "bsc software engineering"]),
-        ("Science", ["science"]),
-        ("B.Sc Physics", ["b.sc physics", "bsc physics"]),
-        ("B.Sc Chemistry", ["b.sc chemistry", "bsc chemistry"]),
-        ("B.Sc Mathematics", ["b.sc mathematics", "bsc mathematics", "b.sc maths", "bsc maths"]),
-        ("B.Sc Statistics", ["b.sc statistics", "bsc statistics"]),
-        ("B.Sc Biotechnology", ["b.sc biotechnology", "bsc biotechnology"]),
-        ("B.Sc Microbiology", ["b.sc microbiology", "bsc microbiology"]),
-        ("B.Sc Zoology", ["b.sc zoology", "bsc zoology"]),
-        ("B.Sc Botany", ["b.sc botany", "bsc botany"]),
-        ("B.Sc Environmental Science", ["b.sc environmental science", "bsc environmental science"]),
-        ("B.Sc Forensic Science", ["b.sc forensic science", "bsc forensic science"]),
-        ("B.Sc Agriculture", ["b.sc agriculture", "bsc agriculture"]),
-        ("B.Sc Nursing", ["b.sc nursing", "bsc nursing"]),
-        ("Commerce & Management", ["commerce & management", "commerce and management"]),
-        ("B.Com (Bachelor of Commerce)", ["b.com", "bachelor of commerce", "bcom"]),
-        ("B.Com (Hons.)", ["b.com hons", "b.com (hons)", "bcom hons"]),
-        ("BBA (Bachelor of Business Administration)", ["bba", "bachelor of business administration"]),
-        ("BMS (Bachelor of Management Studies)", ["bms", "bachelor of management studies"]),
-        ("BFM (Bachelor of Financial Markets)", ["bfm", "bachelor of financial markets"]),
-        ("BAF (Bachelor of Accounting and Finance)", ["baf", "bachelor of accounting and finance"]),
-        ("BBI (Bachelor of Banking and Insurance)", ["bbi", "bachelor of banking and insurance"]),
-        ("Arts & Humanities", ["arts & humanities", "arts and humanities"]),
-        ("B.A. (Bachelor of Arts)", ["b.a. (bachelor of arts)", "b.a. bachelor of arts", "bachelor of arts", "ba"]),
-        ("B.A. English", ["b.a. english", "ba english"]),
-        ("B.A. Economics", ["b.a. economics", "ba economics"]),
-        ("B.A. Political Science", ["b.a. political science", "ba political science"]),
-        ("B.A. History", ["b.a. history", "ba history"]),
-        ("B.A. Psychology", ["b.a. psychology", "ba psychology"]),
-        ("B.A. Sociology", ["b.a. sociology", "ba sociology"]),
-        ("B.A. Journalism and Mass Communication", ["b.a. journalism", "ba journalism", "mass communication"]),
-        ("BSW (Bachelor of Social Work)", ["bsw", "bachelor of social work"]),
-        ("BPA (Bachelor of Performing Arts)", ["bpa", "bachelor of performing arts"]),
-        ("Medical & Healthcare", ["medical & healthcare", "medical and healthcare"]),
-        ("MBBS", ["mbbs"]),
-        ("BDS (Bachelor of Dental Surgery)", ["bds", "bachelor of dental surgery"]),
-        ("BAMS (Ayurveda)", ["bams"]),
-        ("BHMS (Homeopathy)", ["bhms"]),
-        ("BUMS (Unani Medicine)", ["bums"]),
-        ("BPT (Bachelor of Physiotherapy)", ["bpt", "bachelor of physiotherapy"]),
-        ("BOT (Bachelor of Occupational Therapy)", ["bot", "bachelor of occupational therapy"]),
-        ("B.Pharm (Bachelor of Pharmacy)", ["b.pharm", "bachelor of pharmacy", "bpharm"]),
-        ("BMLT (Medical Laboratory Technology)", ["bmlt", "medical laboratory technology"]),
-        ("B.Optom (Bachelor of Optometry)", ["b.optom", "bachelor of optometry", "boptom"]),
-        ("Law", ["law"]),
-        ("LL.B.", ["ll.b.", "llb", "bachelor of laws"]),
-        ("B.A. LL.B.", ["b.a. ll.b.", "ba llb", "b.a. llb"]),
-        ("BBA LL.B.", ["bba ll.b.", "bba llb"]),
-        ("B.Com LL.B.", ["b.com ll.b.", "bcom llb", "b.com llb"]),
-        ("B.Sc LL.B.", ["b.sc ll.b.", "bsc llb", "b.sc llb"]),
-        ("Education", ["education"]),
-        ("B.Ed. (Bachelor of Education)", ["b.ed.", "bachelor of education", "bed"]),
-        ("B.El.Ed. (Bachelor of Elementary Education)", ["b.el.ed.", "bachelor of elementary education", "beled"]),
-        ("B.P.Ed. (Bachelor of Physical Education)", ["b.p.ed.", "bachelor of physical education", "bped"]),
-        ("Architecture & Design", ["architecture & design", "architecture and design"]),
-        ("B.Arch (Bachelor of Architecture)", ["b.arch", "bachelor of architecture", "barch"]),
-        ("B.Des (Bachelor of Design)", ["b.des", "bachelor of design", "bdes"]),
-        ("BFA (Bachelor of Fine Arts)", ["bfa", "bachelor of fine arts"]),
-        ("BID (Bachelor of Interior Design)", ["bid", "bachelor of interior design"]),
-        ("Agriculture & Veterinary", ["agriculture & veterinary", "agriculture and veterinary"]),
-        ("B.V.Sc & A.H. (Veterinary Science and Animal Husbandry)", ["b.v.sc", "bvsc", "veterinary science"]),
-        ("B.F.Sc (Bachelor of Fisheries Science)", ["b.f.sc", "bfsc"]),
-        ("B.Tech Agricultural Engineering", ["b.tech agricultural"]),
-        ("B.Sc Horticulture", ["b.sc horticulture", "bsc horticulture"]),
-        ("B.Sc Forestry", ["b.sc forestry", "bsc forestry"]),
-        ("Hospitality & Tourism", ["hospitality & tourism", "hospitality and tourism"]),
-        ("BHM (Bachelor of Hotel Management)", ["bhm", "bachelor of hotel management"]),
-        ("BHMCT (Hotel Management and Catering Technology)", ["bhmct"]),
-        ("BTTM (Bachelor of Travel and Tourism Management)", ["bttm"])
+        # B.Tech / B.E. Specializations
+        ("B.Tech CSE (Computer Science and Engineering)", [
+            r"b\.?\s*tech\s+cse\b",
+            r"b\.?\s*e\.\s+cse\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+computer\s+science",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+computer\s+science",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+computer\s+science",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+computer\s+science"
+        ]),
+        ("B.Tech IT (Information Technology)", [
+            r"b\.?\s*tech\s+it\b",
+            r"b\.?\s*e\.\s+it\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+information\s+technology",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+information\s+technology",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+information\s+technology",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+information\s+technology"
+        ]),
+        ("B.Tech ECE (Electronics and Communication Engineering)", [
+            r"b\.?\s*tech\s+ece\b",
+            r"b\.?\s*e\.\s+ece\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+electronics\s*(?:and|&)\s*communication",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+electronics\s*(?:and|&)\s*communication",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+electronics\s*(?:and|&)\s*communication",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+electronics\s*(?:and|&)\s*communication"
+        ]),
+        ("B.Tech EEE (Electrical and Electronics Engineering)", [
+            r"b\.?\s*tech\s+eee\b",
+            r"b\.?\s*e\.\s+eee\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+electrical\s*(?:and|&)\s*electronics",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+electrical\s*(?:and|&)\s*electronics",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+electrical\s*(?:and|&)\s*electronics",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+electrical\s*(?:and|&)\s*electronics"
+        ]),
+        ("B.Tech ME (Mechanical Engineering)", [
+            r"b\.?\s*tech\s+me\b",
+            r"b\.?\s*e\.\s+me\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+mechanical",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+mechanical",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+mechanical",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+mechanical"
+        ]),
+        ("B.Tech CE (Civil Engineering)", [
+            r"b\.?\s*tech\s+ce\b",
+            r"b\.?\s*e\.\s+ce\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+civil",
+            r"b\.?\s*e\.?(?:\s+(?:in|of))?\s+civil",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+civil",
+            r"bachelor\s+of\s+engineering(?:\s+(?:in|of))?\s+civil"
+        ]),
+        ("B.Tech AI & ML (Artificial Intelligence and Machine Learning)", [
+            r"b\.?\s*tech\s+ai\s*(?:and|&)\s*ml\b",
+            r"b\.?\s*tech\s+aiml\b",
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+artificial\s+intelligence",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+artificial\s+intelligence"
+        ]),
+        ("B.Tech Data Science", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+data\s+science",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+data\s+science"
+        ]),
+        ("B.Tech Cyber Security", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+cyber\s*(?:security|security)",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+cyber\s*(?:security|security)"
+        ]),
+        ("B.Tech Biotechnology", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+biotechnology",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+biotechnology"
+        ]),
+        ("B.Tech Chemical Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+chemical",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+chemical"
+        ]),
+        ("B.Tech Aerospace Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+aerospace",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+aerospace"
+        ]),
+        ("B.Tech Automobile Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+automobile",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+automobile"
+        ]),
+        ("B.Tech Agricultural Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+agricultural",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+agricultural"
+        ]),
+        ("B.Tech Environmental Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+environmental",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+environmental"
+        ]),
+        ("B.Tech Mining Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+mining",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+mining"
+        ]),
+        ("B.Tech Petroleum Engineering", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+petroleum",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+petroleum"
+        ]),
+        ("B.Tech Food Technology", [
+            r"b\.?\s*tech(?:\s+(?:in|of))?\s+food\s+technology",
+            r"bachelor\s+of\s+technology(?:\s+(?:in|of))?\s+food\s+technology"
+        ]),
+        
+        # General B.Tech / B.E. catch-all (should be lower priority than specific specializations)
+        ("B.Tech (Bachelor of Technology)", [r"b\.?\s*tech\b", r"bachelor\s+of\s+technology"]),
+        ("B.E. (Bachelor of Engineering)", [r"\bb\.?\s*e\.?\b", r"bachelor\s+of\s+engineering"]),
+
+        # BCA / Computer Science
+        ("BCA (Bachelor of Computer Applications)", [r"\bbca\b", r"bachelor\s+of\s+computer\s+applications"]),
+        ("B.Sc Computer Science", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+computer\s+science",
+            r"bsc\s+computer\s+science",
+            r"b\.?\s*sc\.\s+cse?\b",
+            r"bsc\s+cse?\b",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+computer\s+science"
+        ]),
+        ("B.Sc Information Technology", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+information\s+technology",
+            r"bsc\s+information\s+technology",
+            r"b\.?\s*sc\.\s+it\b",
+            r"bsc\s+it\b",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+information\s+technology"
+        ]),
+        ("B.Sc Data Science", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+data\s+science",
+            r"bsc\s+data\s+science",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+data\s+science"
+        ]),
+        ("B.Sc Artificial Intelligence", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+artificial\s+intelligence",
+            r"bsc\s+artificial\s+intelligence",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+artificial\s+intelligence"
+        ]),
+        ("B.Sc Cyber Security", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+cyber\s*(?:security|security)",
+            r"bsc\s+cyber\s*(?:security|security)",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+cyber\s*(?:security|security)"
+        ]),
+        ("B.Sc Software Engineering", [
+            r"b\.?\s*sc\.?(?:\s+in)?\s+software\s+engineering",
+            r"bsc\s+software\s+engineering",
+            r"bachelor\s+of\s+science(?:\s+in)?\s+software\s+engineering"
+        ]),
+
+        # B.Sc Science Specializations
+        ("B.Sc Physics", [r"b\.?\s*sc\.?(?:\s+in)?\s+physics\b", r"bsc\s+physics\b", r"bachelor\s+of\s+science(?:\s+in)?\s+physics\b"]),
+        ("B.Sc Chemistry", [r"b\.?\s*sc\.?(?:\s+in)?\s+chemistry\b", r"bsc\s+chemistry\b", r"bachelor\s+of\s+science(?:\s+in)?\s+chemistry\b"]),
+        ("B.Sc Mathematics", [r"b\.?\s*sc\.?(?:\s+in)?\s+mathematics\b", r"bsc\s+mathematics\b", r"b\.?\s*sc\.\s+maths?\b", r"bsc\s+maths?\b", r"bachelor\s+of\s+science(?:\s+in)?\s+mathematics\b"]),
+        ("B.Sc Statistics", [r"b\.?\s*sc\.?(?:\s+in)?\s+statistics\b", r"bsc\s+statistics\b", r"bachelor\s+of\s+science(?:\s+in)?\s+statistics\b"]),
+        ("B.Sc Biotechnology", [r"b\.?\s*sc\.?(?:\s+in)?\s+biotechnology\b", r"bsc\s+biotechnology\b", r"bachelor\s+of\s+science(?:\s+in)?\s+biotechnology\b"]),
+        ("B.Sc Microbiology", [r"b\.?\s*sc\.?(?:\s+in)?\s+microbiology\b", r"bsc\s+microbiology\b", r"bachelor\s+of\s+science(?:\s+in)?\s+microbiology\b"]),
+        ("B.Sc Zoology", [r"b\.?\s*sc\.?(?:\s+in)?\s+zoology\b", r"bsc\s+zoology\b", r"bachelor\s+of\s+science(?:\s+in)?\s+zoology\b"]),
+        ("B.Sc Botany", [r"b\.?\s*sc\.?(?:\s+in)?\s+botany\b", r"bsc\s+botany\b", r"bachelor\s+of\s+science(?:\s+in)?\s+botany\b"]),
+        ("B.Sc Environmental Science", [r"b\.?\s*sc\.?(?:\s+in)?\s+environmental", r"bsc\s+environmental", r"bachelor\s+of\s+science(?:\s+in)?\s+environmental"]),
+        ("B.Sc Forensic Science", [r"b\.?\s*sc\.?(?:\s+in)?\s+forensic", r"bsc\s+forensic", r"bachelor\s+of\s+science(?:\s+in)?\s+forensic"]),
+        ("B.Sc Agriculture", [r"b\.?\s*sc\.?(?:\s+in)?\s+agriculture", r"bsc\s+agriculture", r"bachelor\s+of\s+science(?:\s+in)?\s+agriculture"]),
+        ("B.Sc Nursing", [r"b\.?\s*sc\.?(?:\s+in)?\s+nursing", r"bsc\s+nursing", r"bachelor\s+of\s+science(?:\s+in)?\s+nursing"]),
+
+        # Business / Commerce
+        ("B.Com (Hons.)", [r"b\.?\s*com\.?\s*(?:hons|\(hons\))", r"bcom\s*(?:hons|\(hons\))"]),
+        ("B.Com (Bachelor of Commerce)", [r"b\.?\s*com\b", r"bcom\b", r"bachelor\s+of\s+commerce"]),
+        ("BBA (Bachelor of Business Administration)", [r"\bbba\b", r"bachelor\s+of\s+business\s+administration"]),
+        ("BMS (Bachelor of Management Studies)", [r"\bbms\b", r"bachelor\s+of\s+management\s+studies"]),
+        ("BFM (Bachelor of Financial Markets)", [r"\bbfm\b", r"bachelor\s+of\s+financial\s+markets"]),
+        ("BAF (Bachelor of Accounting and Finance)", [r"\bbaf\b", r"bachelor\s+of\s+accounting\s+and\s+finance"]),
+        ("BBI (Bachelor of Banking and Insurance)", [r"\bbbi\b", r"bachelor\s+of\s+banking\s+and\s+insurance"]),
+
+        # Arts / Humanities
+        ("B.A. English", [r"b\.?\s*a\.?(?:\s+in)?\s+english\b", r"ba\s+english\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+english\b"]),
+        ("B.A. Economics", [r"b\.?\s*a\.?(?:\s+in)?\s+economics\b", r"ba\s+economics\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+economics\b"]),
+        ("B.A. Political Science", [r"b\.?\s*a\.?(?:\s+in)?\s+political\s+science\b", r"ba\s+political\s+science\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+political\s+science\b"]),
+        ("B.A. History", [r"b\.?\s*a\.?(?:\s+in)?\s+history\b", r"ba\s+history\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+history\b"]),
+        ("B.A. Psychology", [r"b\.?\s*a\.?(?:\s+in)?\s+psychology\b", r"ba\s+psychology\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+psychology\b"]),
+        ("B.A. Sociology", [r"b\.?\s*a\.?(?:\s+in)?\s+sociology\b", r"ba\s+sociology\b", r"bachelor\s+of\s+arts(?:\s+in)?\s+sociology\b"]),
+        ("B.A. Journalism and Mass Communication", [r"b\.?\s*a\.?(?:\s+in)?\s+journalism", r"ba\s+journalism", r"mass\s+communication", r"journalism\s*(?:and|&)\s*mass"]),
+        ("BSW (Bachelor of Social Work)", [r"\bbsw\b", r"bachelor\s+of\s+social\s+work"]),
+        ("BPA (Bachelor of Performing Arts)", [r"\bbpa\b", r"bachelor\s+of\s+performing\s+arts"]),
+        ("B.A. (Bachelor of Arts)", [r"\bba\b", r"\bb\.?\s*a\.?\b", r"bachelor\s+of\s+arts\b"]),
+
+        # Healthcare / Medical
+        ("MBBS", [r"\bmbbs\b"]),
+        ("BDS (Bachelor of Dental Surgery)", [r"\bbds\b", r"bachelor\s+of\s+dental\s+surgery"]),
+        ("BAMS (Ayurveda)", [r"\bbams\b"]),
+        ("BHMS (Homeopathy)", [r"\bbhms\b"]),
+        ("BUMS (Unani Medicine)", [r"\bbums\b"]),
+        ("BPT (Bachelor of Physiotherapy)", [r"\bbpt\b", r"bachelor\s+of\s+physiotherapy"]),
+        ("BOT (Bachelor of Occupational Therapy)", [r"\bbot\b", r"bachelor\s+of\s+occupational\s+therapy"]),
+        ("B.Pharm (Bachelor of Pharmacy)", [r"b\.?\s*pharm\b", r"bpharm\b", r"bachelor\s+of\s+pharmacy"]),
+        ("BMLT (Medical Laboratory Technology)", [r"\bbmlt\b", r"medical\s+laboratory\s+technology"]),
+        ("B.Optom (Bachelor of Optometry)", [r"b\.?\s*optom\b", r"boptom\b", r"bachelor\s+of\s+optometry"]),
+
+        # Law
+        ("B.A. LL.B.", [r"b\.?\s*a\.?(?:\s+in)?\s*ll\.?\s*b\.?\b", r"ba\s+llb\b", r"b\.?\s*a\.?\s*llb\b"]),
+        ("BBA LL.B.", [r"bba\s*ll\.?\s*b\.?\b"]),
+        ("B.Com LL.B.", [r"b\.?\s*com\.?\s*ll\.?\s*b\.?\b", r"bcom\s*llb\b"]),
+        ("B.Sc LL.B.", [r"b\.?\s*sc\.?\s*ll\.?\s*b\.?\b", r"bsc\s*llb\b"]),
+        ("LL.B.", [r"\bll\.?\s*b\.?\b", r"bachelor\s+of\s+laws"]),
+
+        # Education
+        ("B.El.Ed. (Bachelor of Elementary Education)", [r"b\.?\s*el\.?\s*ed\.?\b", r"beled\b"]),
+        ("B.P.Ed. (Bachelor of Physical Education)", [r"b\.?\s*p\.?\s*ed\.?\b", r"bped\b"]),
+        ("B.Ed. (Bachelor of Education)", [r"b\.?\s*ed\.?\b", r"bed\b", r"bachelor\s+of\s+education"]),
+
+        # Architecture & Design
+        ("B.Arch (Bachelor of Architecture)", [r"b\.?\s*arch\b", r"barch\b", r"bachelor\s+of\s+architecture"]),
+        ("B.Des (Bachelor of Design)", [r"b\.?\s*des\b", r"bdes\b", r"bachelor\s+of\s+design"]),
+        ("BFA (Bachelor of Fine Arts)", [r"\bbfa\b", r"bachelor\s+of\s+fine\s+arts"]),
+        ("BID (Bachelor of Interior Design)", [r"\bbid\b", r"bachelor\s+of\s+interior\s+design"]),
+
+        # Veterinary / Fisheries
+        ("B.V.Sc & A.H. (Veterinary Science and Animal Husbandry)", [r"b\.?\s*v\.?\s*sc\b", r"bvsc\b", r"veterinary\s+science"]),
+        ("B.F.Sc (Bachelor of Fisheries Science)", [r"b\.?\s*f\.?\s*sc\b", r"bfsc\b"]),
+        ("B.Sc Horticulture", [r"b\.?\s*sc\.?(?:\s+in)?\s+horticulture", r"bsc\s+horticulture"]),
+        ("B.Sc Forestry", [r"b\.?\s*sc\.?(?:\s+in)?\s+forestry", r"bsc\s+forestry"]),
+
+        # Hospitality
+        ("BHM (Bachelor of Hotel Management)", [r"\bbhm\b", r"bachelor\s+of\s+hotel\s+management"]),
+        ("BHMCT (Hotel Management and Catering Technology)", [r"\bbhmct\b"]),
+        ("BTTM (Bachelor of Travel and Tourism Management)", [r"\bbttm\b", r"travel\s*(?:and|&)\s*tourism"])
     ]
 
-    for degree_name, aliases in degree_mapping:
-        for alias in aliases:
-            escaped_alias = re.escape(alias)
-            pattern = r'\b' + escaped_alias + r'\b'
+    for degree_name, patterns in degree_mapping:
+        for pattern in patterns:
             if re.search(pattern, text_lower):
                 qualifications.append(degree_name)
                 break
+
+    # Filter out generic degree catch-alls if a more specific specialization was matched
+    has_specific_btech = any(q.startswith("B.Tech ") and "Bachelor of Technology" not in q for q in qualifications)
+    if has_specific_btech and "B.Tech (Bachelor of Technology)" in qualifications:
+        qualifications.remove("B.Tech (Bachelor of Technology)")
+        
+    has_specific_be = any(q.startswith("B.E. ") and "Bachelor of Engineering" not in q for q in qualifications)
+    if has_specific_be and "B.E. (Bachelor of Engineering)" in qualifications:
+        qualifications.remove("B.E. (Bachelor of Engineering)")
+
+    has_specific_ba = any(q.startswith("B.A. ") and "Bachelor of Arts" not in q for q in qualifications)
+    if has_specific_ba and "B.A. (Bachelor of Arts)" in qualifications:
+        qualifications.remove("B.A. (Bachelor of Arts)")
+
+    has_specific_bcom = any(q.startswith("B.Com ") and "Bachelor of Commerce" not in q for q in qualifications)
+    if has_specific_bcom and "B.Com (Bachelor of Commerce)" in qualifications:
+        qualifications.remove("B.Com (Bachelor of Commerce)")
 
     # If no custom degree matched, fallback to general patterns
     if not qualifications:
