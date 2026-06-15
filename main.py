@@ -75,6 +75,11 @@ def migrate_db():
                     conn.execute(text("ALTER TABLE users ADD COLUMN integrity_notes TEXT"))
                     conn.commit()
                     print("SUCCESS: Added column: users.integrity_notes")
+
+                if "age" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN age INTEGER"))
+                    conn.commit()
+                    print("SUCCESS: Added column: users.age")
             
             # Check for InterviewSession columns dialect-sensitively
             if engine.dialect.name == "sqlite":
@@ -229,6 +234,8 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    age: int = None
+    experience: str = None
 
 # Auth endpoints
 @app.post("/api/register")
@@ -238,7 +245,14 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if existing_user:
         return {"success": False, "message": "User already exists"}
     
-    new_user = User(username=username_clean, password=req.password, status="Pending", access="grant")
+    new_user = User(
+        username=username_clean,
+        password=req.password,
+        status="Pending",
+        access="grant",
+        age=req.age,
+        experience=req.experience
+    )
     db.add(new_user)
     db.commit()
     return {"success": True, "message": "Registration successful"}
@@ -595,7 +609,9 @@ async def get_result(db: Session = Depends(get_db), current_user: User = Depends
         "has_resume": bool(user.resume_path),
         "has_interview": len(sessions) > 0,
         "is_revoked": user.access == "revoke",
-        "evaluation_report": evaluation_report
+        "evaluation_report": evaluation_report,
+        "age": user.age,
+        "experience": user.experience
     }
 
 class AccessRequest(BaseModel):

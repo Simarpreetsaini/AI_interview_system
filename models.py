@@ -18,6 +18,7 @@ class User(Base):
     source = Column(String, nullable=True)       # Resume/Interview source
     skills = Column(String, nullable=True)       # Extracted candidate skills
     integrity_notes = Column(String, default="") # Log of cheating incidents
+    age = Column(Integer, nullable=True)         # Candidate age
     
     sessions = relationship("InterviewSession", back_populates="user")
 

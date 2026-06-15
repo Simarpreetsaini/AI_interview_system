@@ -206,6 +206,8 @@
                 <p>Identity: <span id="info-name">...</span></p>
                 <p>Location: <span id="info-loc">...</span></p>
                 <p>Qualifications: <span id="info-qual">...</span></p>
+                <p>Age Range: <span id="info-age">...</span></p>
+                <p>Expertise Level: <span id="info-exp">...</span></p>
                 <div style="margin-top: 1rem;">
                     <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Neural Tags</div>
                     <div id="info-skills" style="display: flex; flex-wrap: wrap; gap: 4px;">...</div>
@@ -651,14 +653,30 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success && data.has_interview) {
-                    if (data.status === "Pending") {
-                        alert("⏳ Your interview is currently pending admin review. You cannot retake it at this time.");
-                    } else {
-                        alert("📊 Your interview evaluation is complete. You cannot enter the interview room.");
+                if (data.success) {
+                    if (data.has_interview) {
+                        if (data.status === "Pending") {
+                            alert("⏳ Your interview is currently pending admin review. You cannot retake it at this time.");
+                        } else {
+                            alert("📊 Your interview evaluation is complete. You cannot enter the interview room.");
+                        }
+                        window.location.href = '/index.html?show_results=1';
+                        return;
                     }
-                    window.location.href = '/index.html?show_results=1';
-                    return;
+                    
+                    if (data.age) {
+                        document.getElementById('cand-age').value = data.age;
+                    }
+                    if (data.experience) {
+                        document.getElementById('cand-exp').value = data.experience;
+                    }
+                    
+                    // If age and experience were pre-filled, skip Phase 1
+                    if (data.age) {
+                        document.getElementById('phase1').style.display = 'none';
+                        document.getElementById('phase2').style.display = 'block';
+                        document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
+                    }
                 }
             } catch (err) {
                 console.error("Error checking interview status:", err);
@@ -702,6 +720,16 @@
                     document.getElementById('info-name').innerText = info.name || 'N/A';
                     document.getElementById('info-loc').innerText = info.location || 'N/A';
                     document.getElementById('info-qual').innerText = info.qualifications || 'N/A';
+                    
+                    if (info.estimated_age) {
+                        document.getElementById('cand-age').value = info.estimated_age;
+                    }
+                    
+                    const ageField = document.getElementById('cand-age').value;
+                    const expField = document.getElementById('cand-exp').value;
+                    
+                    document.getElementById('info-age').innerText = ageField || 'N/A';
+                    document.getElementById('info-exp').innerText = expField === 'fresher' ? 'Fresher (0-1 Years)' : 'Experienced (1+ Years)';
                     
                     const skillBox = document.getElementById('info-skills');
                     skillBox.innerHTML = '';

@@ -227,6 +227,17 @@
                                 <input type="text" id="reg-username" placeholder="Choose a name">
                             </div>
                             <div class="input-group">
+                                <label class="input-label">Age Range</label>
+                                <input type="number" id="reg-age" placeholder="24" min="18">
+                            </div>
+                            <div class="input-group">
+                                <label class="input-label">Expertise Level</label>
+                                <select id="reg-exp" style="width: 100%; padding: 0.75rem 1rem; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); color: #fff; outline: none; transition: border-color 0.3s; box-sizing: border-box;">
+                                    <option value="fresher">Fresher (0-1 Years)</option>
+                                    <option value="experienced">Experienced (1+ Years)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
                                 <label class="input-label">Password</label>
                                 <input type="password" id="reg-password" placeholder="••••••••">
                             </div>
@@ -561,16 +572,18 @@
         async function register() {
             const raw_u = document.getElementById('reg-username').value;
             const u = raw_u ? raw_u.trim() : '';
+            const ageVal = document.getElementById('reg-age').value;
+            const expVal = document.getElementById('reg-exp').value;
             const p = document.getElementById('reg-password').value;
             const c = document.getElementById('reg-confirm').value;
 
-            if (!u || !p) { showMessage("Please fill all fields", "#ef4444"); return; }
+            if (!u || !p || !ageVal) { showMessage("Please fill all fields", "#ef4444"); return; }
             if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
 
             const res = await fetch(getApiUrl('/api/register'), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: u, password: p})
+                body: JSON.stringify({username: u, password: p, age: parseInt(ageVal), experience: expVal})
             });
             const data = await res.json();
             
