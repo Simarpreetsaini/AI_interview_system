@@ -211,16 +211,16 @@ async def favicon():
 async def chrome_devtools():
     return {"status": "ok"}
 
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
 # Serve HTML files
 NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
 
-@app.get("/", response_class=HTMLResponse)
-async def serve_index():
-    return FileResponse("index.html", headers=NO_CACHE_HEADERS)
+@app.get("/")
+async def root():
+    return {"message": "AI Interview System Running"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def serve_index_alias():
