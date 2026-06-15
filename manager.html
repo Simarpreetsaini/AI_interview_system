@@ -153,7 +153,7 @@
                     </select>
                     <input type="text" id="table-search" placeholder="Search..." onkeyup="filterTable()" style="width: 200px; padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <button onclick="exportToCSV()" class="btn-outline">Export CSV</button>
-                    <button onclick="deleteAllRecords()" class="btn-outline" style="border-color: #ef4444; color: #ef4444; transition: all 0.3s;" onmouseover="this.style.background='#ef4444'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#ef4444';">Delete All Records 🗑️</button>
+                    <button onclick="deleteAllRecords()" class="btn-outline" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)';">Delete All Records 🗑️</button>
                 </div>
             </div>
             <div class="table-responsive">
@@ -318,19 +318,6 @@
             }
             hideServerWakeupBanner();
             const data = await res.json();
-            
-            if (res.status === 401 || data.detail || (data.success === false)) {
-                alert("⛔ Session expired or access denied. Please log in again.");
-                localStorage.clear();
-                window.location.href = '/index.html';
-                return;
-            }
-            
-            // Ensure data is an array
-            if (!Array.isArray(data)) {
-                showToast("Received invalid data from server.");
-                return;
-            }
             
             const table = document.getElementById('records-table');
             table.innerHTML = '';
@@ -641,25 +628,6 @@
             }
         }
 
-        async function deleteAllRecords() {
-            if(!confirm("⚠️ WARNING: Are you sure you want to PERMANENTLY delete ALL candidate records? This will delete all users and their interview session history, and cannot be undone.")) return;
-            if(!confirm("🔒 CRITICAL CONFIRMATION: Double check, delete everything?")) return;
-            
-            const res = await fetch(getApiUrl('/api/delete_all_candidates'), {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
-            });
-            const data = await res.json();
-            if(data.success) {
-                showToast("All candidate records deleted successfully");
-                loadRecords();
-            } else {
-                showToast("Error deleting records: " + (data.message || "Unknown error"));
-            }
-        }
-
         function showToast(msg) {
             const toast = document.createElement('div');
             toast.className = 'toast outfit';
@@ -705,6 +673,34 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+        }
+
+        async function deleteAllRecords() {
+            if (!confirm("⚠️ CAUTION: Are you sure you want to PERMANENTLY delete ALL candidate records? This will delete all user accounts (excluding admin) and all interview session logs. This action cannot be undone.")) {
+                return;
+            }
+            if (!confirm("Please confirm once more: Do you really want to delete all data?")) {
+                return;
+            }
+
+            try {
+                const res = await fetch(getApiUrl('/api/delete_all_candidates'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("All candidate records deleted successfully");
+                    loadRecords();
+                } else {
+                    showToast("⚠️ Deletion failed: " + (data.message || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Error deleting all records:", err);
+                showToast("⚠️ Connection error deleting records");
+            }
         }
     </script>
 </body>
