@@ -264,29 +264,6 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(new_user)
     db.commit()
-    
-    # Mirror to SQLite if primary is PostgreSQL
-    if engine.dialect.name == "postgresql":
-        sqlite_db = SqliteSessionLocal()
-        try:
-            existing_sqlite = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
-            if not existing_sqlite:
-                new_sqlite_user = User(
-                    username=username_clean,
-                    password=req.password,
-                    status="Pending",
-                    access="grant",
-                    age=req.age,
-                    experience=req.experience
-                )
-                sqlite_db.add(new_sqlite_user)
-                sqlite_db.commit()
-        except Exception as e:
-            sqlite_db.rollback()
-            print(f"Warning: Failed to mirror registration to SQLite: {e}")
-        finally:
-            sqlite_db.close()
-            
     return {"success": True, "message": "Registration successful"}
 
 @app.post("/api/login")
@@ -315,33 +292,6 @@ async def update_profile(req: UpdateProfileRequest, db: Session = Depends(get_db
     current_user.age = req.age
     current_user.experience = req.experience
     db.commit()
-    
-    # Mirror to SQLite if primary is PostgreSQL
-    if engine.dialect.name == "postgresql":
-        sqlite_db = SqliteSessionLocal()
-        try:
-            sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(current_user.username.strip())).first()
-            if sqlite_user:
-                sqlite_user.age = req.age
-                sqlite_user.experience = req.experience
-                sqlite_db.commit()
-            else:
-                new_sqlite_user = User(
-                    username=current_user.username,
-                    password=current_user.password,
-                    status=current_user.status,
-                    access=current_user.access,
-                    age=req.age,
-                    experience=req.experience
-                )
-                sqlite_db.add(new_sqlite_user)
-                sqlite_db.commit()
-        except Exception as e:
-            sqlite_db.rollback()
-            print(f"Warning: Failed to mirror update_profile to SQLite: {e}")
-        finally:
-            sqlite_db.close()
-            
     return {"success": True, "message": "Profile updated successfully"}
 
 
@@ -366,21 +316,6 @@ def upload_answer_video_bg(db_session_id: int, local_path: str, answer_filename:
             if session_rec:
                 session_rec.video_url = cloud_url
                 db.commit()
-                
-            # Mirror to SQLite if primary is PostgreSQL
-            if engine.dialect.name == "postgresql":
-                sqlite_db = SqliteSessionLocal()
-                try:
-                    sqlite_session = sqlite_db.query(InterviewSession).filter(InterviewSession.id == db_session_id).first()
-                    if sqlite_session:
-                        sqlite_session.video_url = cloud_url
-                        sqlite_db.commit()
-                except Exception as e:
-                    sqlite_db.rollback()
-                    print(f"Warning: Failed to mirror background video upload to SQLite: {e}")
-                finally:
-                    sqlite_db.close()
-                    
             if os.path.exists(local_path):
                 os.remove(local_path)
     except Exception as e:
@@ -485,45 +420,6 @@ async def upload_resume(
                 user.phone = None
                 
             db.commit()
-            
-            # Mirror to SQLite if primary is PostgreSQL
-            if engine.dialect.name == "postgresql":
-                sqlite_db = SqliteSessionLocal()
-                try:
-                    sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
-                    if sqlite_user:
-                        sqlite_user.resume_path = user.resume_path
-                        sqlite_user.experience = user.experience
-                        sqlite_user.domain = user.domain
-                        sqlite_user.source = user.source
-                        sqlite_user.skills = user.skills
-                        sqlite_user.age = user.age
-                        sqlite_user.email = user.email
-                        sqlite_user.phone = user.phone
-                        sqlite_db.commit()
-                    else:
-                        new_sqlite_user = User(
-                            username=user.username,
-                            password=user.password,
-                            status=user.status,
-                            access=user.access,
-                            resume_path=user.resume_path,
-                            experience=user.experience,
-                            domain=user.domain,
-                            source=user.source,
-                            skills=user.skills,
-                            age=user.age,
-                            email=user.email,
-                            phone=user.phone,
-                            integrity_notes=user.integrity_notes
-                        )
-                        sqlite_db.add(new_sqlite_user)
-                        sqlite_db.commit()
-                except Exception as e:
-                    sqlite_db.rollback()
-                    print(f"Warning: Failed to mirror resume upload to SQLite: {e}")
-                finally:
-                    sqlite_db.close()
 
     return {"success": True, "questions": questions, "candidate_info": parsed}
 
@@ -578,8 +474,7 @@ async def analyze_answer_endpoint(
             answer_text = "No response captured."
 
     # Calculate score and feedback
-    score_raw, feedback = analyze_answer(question, answer_text, emotion)
-    score = float(score_raw)
+    score, feedback = analyze_answer(question, answer_text, emotion)
     
     # Save session record to DB with correctly-cased username from access token
     new_session = InterviewSession(
@@ -596,49 +491,6 @@ async def analyze_answer_endpoint(
     db.commit()
     db.refresh(new_session)
     
-    # Mirror to SQLite if primary is PostgreSQL
-    if engine.dialect.name == "postgresql":
-        sqlite_db = SqliteSessionLocal()
-        try:
-            sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(current_user.username.strip())).first()
-            if not sqlite_user:
-                new_sqlite_user = User(
-                    username=current_user.username,
-                    password=current_user.password,
-                    status=current_user.status,
-                    access=current_user.access,
-                    resume_path=current_user.resume_path,
-                    experience=current_user.experience,
-                    domain=current_user.domain,
-                    source=current_user.source,
-                    skills=current_user.skills,
-                    age=current_user.age,
-                    email=current_user.email,
-                    phone=current_user.phone,
-                    integrity_notes=current_user.integrity_notes
-                )
-                sqlite_db.add(new_sqlite_user)
-                sqlite_db.commit()
-                
-            new_sqlite_session = InterviewSession(
-                id=new_session.id,
-                username=current_user.username,
-                date=new_session.date,
-                question=question,
-                answer=answer_text,
-                emotion=emotion,
-                score=score,
-                video_url=new_session.video_url,
-                evaluation_feedback=feedback
-            )
-            sqlite_db.add(new_sqlite_session)
-            sqlite_db.commit()
-        except Exception as e:
-            sqlite_db.rollback()
-            print(f"Warning: Failed to mirror interview session to SQLite: {e}")
-        finally:
-            sqlite_db.close()
-            
     # Queue background Cloudinary upload task if perm_path exists
     if perm_path:
         if background_tasks:
@@ -649,21 +501,6 @@ async def analyze_answer_endpoint(
             if cloud_url.startswith("http"):
                 new_session.video_url = cloud_url
                 db.commit()
-                
-                # Mirror fallback upload url to SQLite if primary is PostgreSQL
-                if engine.dialect.name == "postgresql":
-                    sqlite_db = SqliteSessionLocal()
-                    try:
-                        sqlite_session = sqlite_db.query(InterviewSession).filter(InterviewSession.id == new_session.id).first()
-                        if sqlite_session:
-                            sqlite_session.video_url = cloud_url
-                            sqlite_db.commit()
-                    except Exception as e:
-                        sqlite_db.rollback()
-                        print(f"Warning: Failed to mirror fallback video URL update to SQLite: {e}")
-                    finally:
-                        sqlite_db.close()
-                        
                 if os.path.exists(perm_path):
                     os.remove(perm_path)
 
@@ -848,21 +685,6 @@ async def update_access(req: AccessRequest, db: Session = Depends(get_db)):
     if user:
         user.access = req.access
         db.commit()
-        
-        # Mirror to SQLite if primary is PostgreSQL
-        if engine.dialect.name == "postgresql":
-            sqlite_db = SqliteSessionLocal()
-            try:
-                sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
-                if sqlite_user:
-                    sqlite_user.access = req.access
-                    sqlite_db.commit()
-            except Exception as e:
-                sqlite_db.rollback()
-                print(f"Warning: Failed to mirror access update to SQLite: {e}")
-            finally:
-                sqlite_db.close()
-                
         return {"success": True, "message": f"Access {req.access}ed for {req.username}"}
     return {"success": False, "message": "User not found"}
 
@@ -871,31 +693,11 @@ async def delete_user(req: dict, db: Session = Depends(get_db)):
     username = req.get("username", "")
     username_clean = username.strip()
     user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
-    deleted = False
     if user:
         # Also delete sessions
         db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(username_clean)).delete()
         db.delete(user)
         db.commit()
-        deleted = True
-        
-    # Mirror delete to SQLite if primary is PostgreSQL
-    if engine.dialect.name == "postgresql":
-        sqlite_db = SqliteSessionLocal()
-        try:
-            sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
-            if sqlite_user:
-                sqlite_db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(username_clean)).delete()
-                sqlite_db.delete(sqlite_user)
-                sqlite_db.commit()
-                deleted = True
-        except Exception as e:
-            sqlite_db.rollback()
-            print(f"Warning: Failed to mirror user deletion to SQLite: {e}")
-        finally:
-            sqlite_db.close()
-            
-    if deleted:
         return {"success": True, "message": f"User {username_clean} and all records deleted."}
     return {"success": False, "message": "User not found"}
 
@@ -914,39 +716,6 @@ async def log_violation(req: ViolationRequest, db: Session = Depends(get_db)):
         else:
             user.integrity_notes = new_note
         db.commit()
-        
-        # Mirror to SQLite if primary is PostgreSQL
-        if engine.dialect.name == "postgresql":
-            sqlite_db = SqliteSessionLocal()
-            try:
-                sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
-                if sqlite_user:
-                    sqlite_user.integrity_notes = user.integrity_notes
-                    sqlite_db.commit()
-                else:
-                    new_sqlite_user = User(
-                        username=user.username,
-                        password=user.password,
-                        status=user.status,
-                        access=user.access,
-                        resume_path=user.resume_path,
-                        experience=user.experience,
-                        domain=user.domain,
-                        source=user.source,
-                        skills=user.skills,
-                        age=user.age,
-                        email=user.email,
-                        phone=user.phone,
-                        integrity_notes=user.integrity_notes
-                    )
-                    sqlite_db.add(new_sqlite_user)
-                    sqlite_db.commit()
-            except Exception as e:
-                sqlite_db.rollback()
-                print(f"Warning: Failed to mirror violation log to SQLite: {e}")
-            finally:
-                sqlite_db.close()
-                
         return {"success": True}
     return {"success": False, "message": "User not found"}
 
@@ -1079,21 +848,6 @@ async def submit_reset(req: ResetSubmitRequest, db: Session = Depends(get_db)):
     if user:
         user.password = req.password
         db.commit()
-        
-        # Mirror password reset to SQLite if primary is PostgreSQL
-        if engine.dialect.name == "postgresql":
-            sqlite_db = SqliteSessionLocal()
-            try:
-                sqlite_user = sqlite_db.query(User).filter(func.lower(User.username) == func.lower(req.username.strip())).first()
-                if sqlite_user:
-                    sqlite_user.password = req.password
-                    sqlite_db.commit()
-            except Exception as e:
-                sqlite_db.rollback()
-                print(f"Warning: Failed to mirror password reset to SQLite: {e}")
-            finally:
-                sqlite_db.close()
-                
         return {"success": True, "message": "Password updated successfully!"}
     return {"success": False, "message": "System error during reset."}
 
