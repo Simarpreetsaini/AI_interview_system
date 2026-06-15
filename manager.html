@@ -153,6 +153,7 @@
                     </select>
                     <input type="text" id="table-search" placeholder="Search..." onkeyup="filterTable()" style="width: 200px; padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <button onclick="exportToCSV()" class="btn-outline">Export CSV</button>
+                    <button onclick="deleteAllRecords()" class="btn-outline" style="border-color: #ef4444; color: #ef4444; transition: all 0.3s;" onmouseover="this.style.background='#ef4444'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#ef4444';">Delete All Records 🗑️</button>
                 </div>
             </div>
             <div class="table-responsive">
@@ -624,6 +625,25 @@
                 showToast(`Candidate ${action.toUpperCase()}D successfully`);
                 closeModal();
                 loadRecords();
+            }
+        }
+
+        async function deleteAllRecords() {
+            if(!confirm("⚠️ WARNING: Are you sure you want to PERMANENTLY delete ALL candidate records? This will delete all users and their interview session history, and cannot be undone.")) return;
+            if(!confirm("🔒 CRITICAL CONFIRMATION: Double check, delete everything?")) return;
+            
+            const res = await fetch(getApiUrl('/api/delete_all_candidates'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+            const data = await res.json();
+            if(data.success) {
+                showToast("All candidate records deleted successfully");
+                loadRecords();
+            } else {
+                showToast("Error deleting records: " + (data.message || "Unknown error"));
             }
         }
 

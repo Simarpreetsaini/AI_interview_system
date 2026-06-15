@@ -668,6 +668,25 @@ async def delete_user(req: dict, db: Session = Depends(get_db)):
         return {"success": True, "message": f"User {username_clean} and all records deleted."}
     return {"success": False, "message": "User not found"}
 
+@app.post("/api/delete_all_candidates")
+async def delete_all_candidates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.username.lower() != "admin":
+        raise HTTPException(status_code=403, detail="Permission denied")
+        
+    try:
+        # Delete all interview sessions
+        db.query(InterviewSession).delete()
+        # Delete all users EXCEPT 'admin'
+        db.query(User).filter(func.lower(User.username) != "admin").delete()
+        db.commit()
+        return {"success": True, "message": "All candidate records deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Error: {str(e)}"}
+
 class ViolationRequest(BaseModel):
     username: str
     reason: str
