@@ -1,32 +1,38 @@
 import numpy as np
 import torch
 import os
+import threading
 
 _vad_model = None
 _vad_utils = None
+_vad_lock = threading.Lock()
 
 def init_vad():
     global _vad_model, _vad_utils
-    if _vad_model is not None:
+    if _vad_model is not None and _vad_model != "fallback":
         return True
         
-    try:
-        # Load pre-trained Silero VAD model
-        print("Loading Silero VAD model via torch.hub...")
-        model, utils = torch.hub.load(
-            repo_or_dir='snakers4/silero-vad',
-            model='silero_vad',
-            trust_repo=True,
-            verbose=False
-        )
-        _vad_model = model
-        _vad_utils = utils
-        print("Silero VAD model loaded successfully.")
-        return True
-    except Exception as e:
-        print(f"Silero VAD initialization failed: {e}. Falling back to simple energy-based VAD.")
-        _vad_model = "fallback"
-        return False
+    with _vad_lock:
+        if _vad_model is not None and _vad_model != "fallback":
+            return True
+            
+        try:
+            # Load pre-trained Silero VAD model
+            print("Loading Silero VAD model via torch.hub...")
+            model, utils = torch.hub.load(
+                repo_or_dir='snakers4/silero-vad',
+                model='silero_vad',
+                trust_repo=True,
+                verbose=False
+            )
+            _vad_model = model
+            _vad_utils = utils
+            print("Silero VAD model loaded successfully.")
+            return True
+        except Exception as e:
+            print(f"Silero VAD initialization failed: {e}. Falling back to simple energy-based VAD.")
+            _vad_model = "fallback"
+            return False
 
 def is_speaking(audio_chunk, sample_rate=16000, threshold=0.5):
     """

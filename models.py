@@ -32,5 +32,6 @@ class InterviewSession(Base):
     emotion = Column(String)
     score = Column(Float)
     video_url = Column(String, nullable=True)
+    evaluation_feedback = Column(String, nullable=True)
 
     user = relationship("User", back_populates="sessions")

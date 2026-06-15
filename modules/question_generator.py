@@ -457,29 +457,40 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
 
     technical_pool = []
     
-    # If a valid source is provided, select questions from that source
-    if source and source in SOURCE_QUESTIONS:
-        technical_pool = list(SOURCE_QUESTIONS[source])
-    else:
-        # Gather possible technical questions based on skills
-        found_any_skill = False
-        for s in skills:
-            s_lower = s.lower().strip()
-            # Partial matching for better skill detection
-            for key in BANK:
-                if key in s_lower or s_lower in key:
+    # 1. Gather technical questions matching candidate's specific skills from the BANK
+    found_any_skill = False
+    for s in skills:
+        s_lower = s.lower().strip()
+        # Look for matching keys in BANK (ignoring behavioral/hard_skills here)
+        for key in BANK:
+            if key == s_lower or key in s_lower or s_lower in key:
+                if key != "hard_skills":
                     technical_pool.extend(BANK[key])
                     found_any_skill = True
-                
-        # Deduplicate technical pool
+
+    # Deduplicate skill questions
+    technical_pool = list(set(technical_pool))
+
+    # 2. Combine and mix generic source-level questions to maintain breadth
+    if source and source in SOURCE_QUESTIONS:
+        source_pool = list(SOURCE_QUESTIONS[source])
+        if found_any_skill:
+            random.shuffle(technical_pool)
+            random.shuffle(source_pool)
+            # Mix both, taking up to 5 generic questions to complement skill-specific ones
+            technical_pool = technical_pool + source_pool[:5]
+        else:
+            technical_pool = source_pool
+    
+    # Deduplicate combined pool
+    technical_pool = list(set(technical_pool))
+    
+    # 3. Fallback defaults if the pool is too small
+    if len(technical_pool) < 10:
+        technical_pool.extend(GENERAL_QUESTIONS)
+        technical_pool.extend(BANK.get("cloud", []))
+        technical_pool.extend(BANK.get("devops", []))
         technical_pool = list(set(technical_pool))
-        
-        # If we don't have enough technical questions or no skills matched, pull from general/cloud/devops as defaults
-        if not found_any_skill or len(technical_pool) < 10:
-            technical_pool.extend(GENERAL_QUESTIONS)
-            technical_pool.extend(BANK["cloud"])
-            technical_pool.extend(BANK["devops"])
-            technical_pool = list(set(technical_pool))
 
     # Determine counts based on experience
     if experience_level.lower() == "experienced":
@@ -494,7 +505,7 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
 
     # Shuffle and pick
     random.shuffle(technical_pool)
-    hard_skills_pool = list(BANK["hard_skills"])
+    hard_skills_pool = list(BANK.get("hard_skills", []))
     random.shuffle(hard_skills_pool)
     
     final_questions = technical_pool[:tech_count] + hard_skills_pool[:hard_count]
@@ -502,7 +513,6 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
     # Final shuffle to mix tech and hard skills
     random.shuffle(final_questions)
     
-    # Limit to total_count just in case
     return final_questions[:total_count]
 
 

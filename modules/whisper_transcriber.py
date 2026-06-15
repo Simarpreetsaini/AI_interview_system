@@ -1,122 +1,55 @@
-
 import os
-import json
-import wave
-import subprocess
-import tempfile
+import requests
+import traceback
+from dotenv import load_dotenv
 
-vosk_available = False
-try:
-    from vosk import Model, KaldiRecognizer
-    vosk_available = True
-except ImportError:
-    print("WARNING: Vosk python package is not installed. STT transcription fallback will be used.")
-
-model = None
-
-def load_model():
-    global model
-    if model is not None:
-        return
-        
-    if not vosk_available:
-        print("Vosk is not installed in this environment. Cannot load Vosk model.")
-        model = "fallback"
-        return
-        
-    model_name = "vosk-model-small-en-us-0.15"
-    try:
-        print(f"Loading Vosk model '{model_name}'...")
-        model = Model(model_name=model_name)
-        print("Vosk model loaded successfully.")
-    except Exception as e:
-        print(f"Vosk model load failed: {e}. Trying local fallback if exists...")
-        if os.path.exists(model_name):
-            try:
-                model = Model(model_name)
-                print("Vosk model loaded from local path.")
-            except Exception as e2:
-                print(f"Local Vosk model load failed: {e2}")
-                model = "fallback"
-        else:
-            print("Vosk model loading failed completely.")
-            model = "fallback"
+load_dotenv()
 
 def transcribe_audio(path):
     if not path or not os.path.exists(path):
         print(f"File path does not exist: {path}")
         return "No response captured."
-
-    load_model()
-    if model == "fallback" or model is None:
-        return "[Transcription Fallback: Vosk model not loaded]"
         
-    # Look for local ffmpeg directory in the workspace (for Windows local setup)
-    workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    local_ffmpeg_dir = os.path.join(workspace_dir, "ffmpeg-2026-03-12-git-9dc44b43b2-essentials_build", "bin")
-    ffmpeg_exe = os.path.join(local_ffmpeg_dir, "ffmpeg.exe")
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        err_msg = "Error: GROQ_API_KEY is not set."
+        print(err_msg)
+        raise ValueError(err_msg)
+        
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
     
-    ffmpeg_cmd = "ffmpeg"
-    if os.path.exists(ffmpeg_exe):
-        ffmpeg_cmd = ffmpeg_exe
-    
-    # Convert input file (WebM/MP4 etc) to PCM WAV 16kHz Mono using FFmpeg
-    wav_path = tempfile.mktemp(suffix=".wav")
-    
-    cmd = [
-        ffmpeg_cmd, "-y", "-i", path,
-        "-ar", "16000",
-        "-ac", "1",
-        "-acodec", "pcm_s16le",
-        wav_path
-    ]
+    filename = os.path.basename(path)
     
     try:
-        print(f"Converting {path} to {wav_path} via FFmpeg using command: {ffmpeg_cmd}...")
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    except Exception as e:
-        print(f"FFmpeg audio conversion failed: {e}")
-        if os.path.exists(wav_path):
-            try:
-                os.remove(wav_path)
-            except:
-                pass
-        return "Audio conversion error."
-        
-    try:
-        wf = wave.open(wav_path, "rb")
-        if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
-            print("Audio file must be WAV format mono PCM.")
-            wf.close()
-            return "Invalid audio format."
+        print(f"Sending audio file {path} to Groq Whisper API...")
+        with open(path, "rb") as f:
+            files = {
+                "file": (filename, f, "audio/webm")
+            }
+            data = {
+                "model": "whisper-large-v3-turbo",
+                "temperature": "0.0",
+                "response_format": "json"
+            }
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
             
-        rec = KaldiRecognizer(model, wf.getframerate())
-        rec.SetWords(False)
-        
-        results = []
-        while True:
-            data = wf.readframes(4000)
-            if len(data) == 0:
-                break
-            if rec.AcceptWaveform(data):
-                res_obj = json.loads(rec.Result())
-                results.append(res_obj.get("text", ""))
-                
-        res_obj = json.loads(rec.FinalResult())
-        results.append(res_obj.get("text", ""))
-        
-        wf.close()
-        text = " ".join([r for r in results if r]).strip()
-        
-        if not text:
-            return "No response captured."
+        if response.status_code != 200:
+            err_details = f"Groq API returned status code {response.status_code}: {response.text}"
+            print(f"Groq API error: {err_details}")
+            raise Exception(err_details)
+            
+        res_json = response.json()
+        text = res_json.get("text", "").strip()
+        print(f"Groq Whisper transcription success: '{text}'")
         return text
     except Exception as e:
-        print(f"Vosk transcription failed: {e}")
-        return "Transcription error."
-    finally:
-        if os.path.exists(wav_path):
-            try:
-                os.remove(wav_path)
-            except Exception as e:
-                print(f"Error removing temporary WAV file: {e}")
+        print("Backend transcription error with stack trace:")
+        traceback.print_exc()
+        raise e
+
+def transcribe_numpy(audio_array):
+    print("Warning: transcribe_numpy is deprecated and not supported in Groq-based transcription.")
+    return ""

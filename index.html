@@ -725,6 +725,18 @@
                     
                     resultSentiment.innerText = data.primary_sentiment || "Neutral";
                     
+                    if (data.evaluation_report && data.evaluation_report !== "No detailed evaluation report available.") {
+                        const formattedReport = data.evaluation_report.replace(/\n/g, '<br>');
+                        resultMessage.innerHTML += `
+                            <div style="margin-top: 1.5rem; background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); text-align: left;">
+                                <div style="color: var(--primary-cyan); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1.5px;">📋 Detailed AI Evaluation Report</div>
+                                <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+                                    ${formattedReport}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     if (isPass && !window.confettiDone) {
                         triggerConfetti();
                         window.confettiDone = true;

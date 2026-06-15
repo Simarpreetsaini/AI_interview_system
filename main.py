@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
@@ -96,6 +96,11 @@ def migrate_db():
                     conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN video_url TEXT"))
                     conn.commit()
                     print("SUCCESS: Added column: interview_sessions.video_url")
+
+                if "evaluation_feedback" not in existing_session_cols:
+                    conn.execute(text("ALTER TABLE interview_sessions ADD COLUMN evaluation_feedback TEXT"))
+                    conn.commit()
+                    print("SUCCESS: Added column: interview_sessions.evaluation_feedback")
     except Exception as e:
         print(f"Migration warning: {e}")
 
@@ -119,6 +124,8 @@ ffmpeg_path = os.path.join(os.getcwd(), "ffmpeg-2026-03-12-git-9dc44b43b2-essent
 os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
 
 app = FastAPI(title="Advanced AI Interview System")
+
+# No local models preloading to keep RAM footprint low for Render deployment
 
 import traceback
 from fastapi.responses import JSONResponse
@@ -391,10 +398,45 @@ async def analyze_answer_endpoint(
     current_user: User = Depends(get_current_user),
     background_tasks: BackgroundTasks = None
 ):
-    answer_text = answer or "No response captured."
+    answer_text = answer or ""
     
-    # Calculate score
-    score = analyze_answer(question, answer_text, emotion)
+    # Save target media if provided (needed both for transcription fallback and video playback)
+    target_media = video or audio
+    perm_path = None
+    answer_filename = None
+    
+    if target_media:
+        os.makedirs("static/videos/answers", exist_ok=True)
+        safe_username = current_user.username.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        answer_filename = f"{safe_username}_answer_{timestamp}.webm"
+        perm_path = f"static/videos/answers/{answer_filename}"
+        
+        file_bytes = await target_media.read()
+        with open(perm_path, "wb") as f:
+            f.write(file_bytes)
+            
+        # Try backend transcription if the client didn't supply one or it failed/timed out
+        if not answer_text.strip() or answer_text == "No response captured.":
+            try:
+                backend_text = transcribe_audio(perm_path)
+                if (backend_text and 
+                    backend_text != "[Transcription Fallback: Vosk model not loaded]" and 
+                    not backend_text.startswith("Audio conversion error") and 
+                    not backend_text.startswith("Transcription error")):
+                    answer_text = backend_text
+                    print(f"INFO: Transcribed audio on backend using Vosk: '{answer_text}'")
+                else:
+                    answer_text = "No response captured."
+            except Exception as e:
+                print(f"Backend transcription error: {e}")
+                answer_text = "No response captured."
+    else:
+        if not answer_text.strip():
+            answer_text = "No response captured."
+
+    # Calculate score and feedback
+    score, feedback = analyze_answer(question, answer_text, emotion)
     
     # Save session record to DB with correctly-cased username from access token
     new_session = InterviewSession(
@@ -404,50 +446,25 @@ async def analyze_answer_endpoint(
         answer=answer_text,
         emotion=emotion,
         score=score,
-        video_url=None
+        video_url=f"/{perm_path}" if perm_path else None,
+        evaluation_feedback=feedback
     )
     db.add(new_session)
     db.commit()
     db.refresh(new_session)
     
-    # If audio/video is provided, save it (required for dashboard video playback)
-    target_media = video or audio
-    if target_media:
-        os.makedirs("static/videos/answers", exist_ok=True)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
-            tmp.write(await target_media.read())
-            tmp_path = tmp.name
-        
-        try:
-            # Save as a permanent file for viewing
-            safe_username = current_user.username.replace("/", "_").replace("\\", "_").replace(" ", "_")
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            answer_filename = f"{safe_username}_answer_{timestamp}.webm"
-            perm_path = f"static/videos/answers/{answer_filename}"
-            
-            import shutil
-            shutil.copy(tmp_path, perm_path)
-            
-            # Record local path initially
-            new_session.video_url = f"/{perm_path}"
-            db.commit()
-            
-            # Queue background Cloudinary upload task to prevent request timeouts
-            if background_tasks:
-                background_tasks.add_task(upload_answer_video_bg, new_session.id, perm_path, answer_filename)
-            else:
-                # Fallback to sync if background tasks context is not available
-                cloud_url = upload_file_to_storage(perm_path, answer_filename)
-                if cloud_url.startswith("http"):
-                    new_session.video_url = cloud_url
-                    db.commit()
-                    if os.path.exists(perm_path):
-                        os.remove(perm_path)
-            
-            print(f"INFO: Using Web Speech API transcription for user {current_user.username}: '{answer_text}' (skipped backend Whisper/Vosk)")
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+    # Queue background Cloudinary upload task if perm_path exists
+    if perm_path:
+        if background_tasks:
+            background_tasks.add_task(upload_answer_video_bg, new_session.id, perm_path, answer_filename)
+        else:
+            # Fallback to sync if background tasks context is not available
+            cloud_url = upload_file_to_storage(perm_path, answer_filename)
+            if cloud_url.startswith("http"):
+                new_session.video_url = cloud_url
+                db.commit()
+                if os.path.exists(perm_path):
+                    os.remove(perm_path)
 
     return {"success": True, "score": score, "transcription": answer_text}
 
@@ -487,7 +504,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         
         # Get all sessions for this user for the transcript
         user_sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(u.username)).all()
-        transcript = [{"q": s.question or "", "a": s.answer or "No answer recorded.", "s": s.score or 0, "v": s.video_url} for s in user_sessions]
+        transcript = [{"q": s.question or "", "a": s.answer or "No answer recorded.", "s": s.score or 0, "v": s.video_url, "f": s.evaluation_feedback or ""} for s in user_sessions]
 
         # Compute date/time from first session if sessions exist
         first_session_date = "Not Started"
@@ -563,6 +580,9 @@ async def get_result(db: Session = Depends(get_db), current_user: User = Depends
     if emotions:
         from collections import Counter
         primary_sentiment = Counter(emotions).most_common(1)[0][0].capitalize()
+        
+    feedback_list = [f"Q: {s.question}\nFeedback: {s.evaluation_feedback}" for s in sessions if s.evaluation_feedback]
+    evaluation_report = "\n\n".join(feedback_list) if feedback_list else "No detailed evaluation report available."
     
     return {
         "success": True,
@@ -574,7 +594,8 @@ async def get_result(db: Session = Depends(get_db), current_user: User = Depends
         "primary_sentiment": primary_sentiment,
         "has_resume": bool(user.resume_path),
         "has_interview": len(sessions) > 0,
-        "is_revoked": user.access == "revoke"
+        "is_revoked": user.access == "revoke",
+        "evaluation_report": evaluation_report
     }
 
 class AccessRequest(BaseModel):
@@ -737,6 +758,41 @@ async def webrtc_offer(params: dict):
     except Exception as e:
         print(f"WebRTC signaling failed: {e}. Returning fallback mock.")
         return {"success": False, "message": f"WebRTC not supported on host backend: {e}"}
+
+@app.post("/api/transcribe")
+async def api_transcribe(file: UploadFile = File(...)):
+    temp_dir = os.path.join("data", "temp_transcribe")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    # Generate unique temp file path
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    temp_file_path = os.path.join(temp_dir, f"chunk_{timestamp}.webm")
+    
+    try:
+        # Read uploaded chunk and save to temp file
+        content = await file.read()
+        with open(temp_file_path, "wb") as f:
+            f.write(content)
+            
+        # Transcribe using Groq Whisper API
+        transcript_text = transcribe_audio(temp_file_path)
+        return {"transcript": transcript_text}
+        
+    except Exception as e:
+        # Log backend error with stack trace (done by print/logging)
+        print("Error in /api/transcribe endpoint:")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transcription failed: {str(e)}"
+        )
+    finally:
+        # Clean up temp file
+        if os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except Exception as cleanup_err:
+                print(f"Failed to delete temp file {temp_file_path}: {cleanup_err}")
 
 if __name__ == "__main__":
     import uvicorn

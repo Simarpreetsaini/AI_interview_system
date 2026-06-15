@@ -532,6 +532,7 @@
                                     record.transcript.map(t => `<div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 10px;">
                                         <div style="color: var(--primary-cyan); font-weight: 700; font-size: 0.75rem;">Q: ${t.q}</div>
                                         <div style="color: #fff; margin: 4px 0;">A: ${t.a}</div>
+                                        ${t.f ? `<div style="color: #94a3b8; font-size: 0.8rem; margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--primary-cyan); font-style: italic;">Gemini Feedback: ${t.f}</div>` : ''}
                                         <div style="display: flex; align-items: center; justify-content: space-between;">
                                             <div style="color: var(--text-muted); font-size: 0.7rem;">Score: ${t.s}%</div>
                                             ${t.v ? `<a href="${t.v}" target="_blank" style="color: var(--primary-cyan); font-size: 0.7rem; font-weight: 700; text-decoration: none; border: 1px solid rgba(0,229,255,0.2); padding: 2px 8px; border-radius: 4px; background: rgba(0,229,255,0.05);">📹 VIEW VIDEO</a>` : ''}

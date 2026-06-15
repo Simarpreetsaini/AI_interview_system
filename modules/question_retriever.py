@@ -95,6 +95,17 @@ def retrieve_semantic_questions(skills, experience_level="fresher", domain=None,
             if idx != -1 and idx < len(_all_questions):
                 retrieved_tech_questions.append(_all_questions[idx])
                 
+        # Inject direct BANK technical questions for candidate's parsed skills to guarantee a match
+        for s in skills:
+            s_lower = s.lower().strip()
+            for key in BANK:
+                if key == s_lower or key in s_lower or s_lower in key:
+                    if key != "hard_skills":
+                        retrieved_tech_questions.extend(BANK[key])
+                        
+        # Deduplicate the merged technical question pool
+        retrieved_tech_questions = list(set(retrieved_tech_questions))
+                        
         # Shuffle retrieved technical questions and slice to target count
         random.shuffle(retrieved_tech_questions)
         final_tech = retrieved_tech_questions[:tech_count]

@@ -223,7 +223,7 @@
     </div>
 
     <!-- Phase 3: Interview -->
-    <div id="phase3" class="simulation-container" style="display: none; min-height: 100vh; padding: 2rem 1.5rem;">
+    <div id="phase3" class="simulation-container" style="display: none;">
         <div class="simulation-grid" style="max-width: 1400px; margin: 0 auto;">
             
             <!-- Left: Visual Feed & Active Question -->
@@ -250,7 +250,60 @@
                             <div id="emotion-display" style="font-size: 0.5rem; color: #fff; font-weight: 700; background: rgba(0,229,255,0.2); padding: 2px 6px; border-radius: 4px;">NEUTRAL</div>
                         </div>
                         <div id="emotion-bars" style="display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--text-muted); text-align: center; margin-top: 10px;">Initializing AI...</div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Happy</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Sad</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Angry</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Fear</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Surprise</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap: 3px;">
+                                <div style="display:flex; justify-content:space-between; font-size: 0.55rem; color: #fff; text-transform: capitalize;">
+                                    <span>Disgusted</span>
+                                    <span>0%</span>
+                                </div>
+                                <div style="width:100%; height:3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow:hidden;">
+                                    <div style="width: 0%; height:100%; background: var(--primary-cyan); box-shadow: 0 0 8px var(--primary-cyan);"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -392,6 +445,138 @@
             }
         }
 
+        class ChunkAudioTranscriber {
+            constructor(onTranscript, onError) {
+                this.onTranscript = onTranscript;
+                this.onError = onError;
+                this.mediaRecorder = null;
+                this.stream = null;
+                this.isActive = false;
+                this.chunkTimeout = null;
+                this.chunkDurationMs = 4000; // Chunk size: 4 seconds
+            }
+
+            async start() {
+                this.isActive = true;
+                try {
+                    if (mediaStream) {
+                        this.stream = mediaStream;
+                    } else {
+                        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    }
+                    this.startNextChunk();
+                } catch (err) {
+                    console.error("Audio capture initialization failed in ChunkAudioTranscriber:", err);
+                    this.handleError(err);
+                }
+            }
+
+            startNextChunk() {
+                if (!this.isActive) return;
+                try {
+                    // Extract only the audio tracks for transcription chunking
+                    const audioStream = new MediaStream(this.stream.getAudioTracks());
+                    let options = {};
+                    if (MediaRecorder.isTypeSupported('audio/webm')) {
+                        options = { mimeType: 'audio/webm' };
+                    }
+                    
+                    const recorder = new MediaRecorder(audioStream, options);
+                    this.mediaRecorder = recorder;
+                    const chunkData = [];
+                    
+                    recorder.ondataavailable = (e) => {
+                        if (e.data && e.data.size > 0) {
+                            chunkData.push(e.data);
+                        }
+                    };
+                    
+                    recorder.onstop = () => {
+                        if (chunkData.length > 0) {
+                            const blob = new Blob(chunkData, { type: 'audio/webm' });
+                            this.sendChunk(blob);
+                        }
+                    };
+                    
+                    recorder.start();
+                    
+                    this.chunkTimeout = setTimeout(() => {
+                        if (this.isActive && recorder.state === 'recording') {
+                            try {
+                                recorder.stop();
+                            } catch(e) {}
+                            this.startNextChunk();
+                        }
+                    }, this.chunkDurationMs);
+                } catch (err) {
+                    console.error("Error starting chunk recording:", err);
+                    this.handleError(err);
+                }
+            }
+
+            async sendChunk(blob, attempt = 1) {
+                if (!this.isActive) return;
+                const token = localStorage.getItem('access_token');
+                const formData = new FormData();
+                formData.append('file', blob, 'chunk.webm');
+                
+                try {
+                    const url = getApiUrl('/api/transcribe');
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const text = data.transcript || "";
+                    if (text.trim()) {
+                        this.onTranscript(text);
+                    }
+                } catch (err) {
+                    console.warn(`Transcription chunk POST failed (attempt ${attempt}/3):`, err);
+                    console.error(`Network failure sending transcription chunk to backend:`, err);
+                    
+                    if (attempt < 3) {
+                        setTimeout(() => {
+                            this.sendChunk(blob, attempt + 1);
+                        }, 1000);
+                    } else {
+                        this.onError(err);
+                    }
+                }
+            }
+
+            stop() {
+                this.isActive = false;
+                if (this.chunkTimeout) {
+                    clearTimeout(this.chunkTimeout);
+                    this.chunkTimeout = null;
+                }
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    try {
+                        this.mediaRecorder.stop();
+                    } catch (e) {}
+                }
+                this.mediaRecorder = null;
+            }
+
+            handleError(err) {
+                showToast("Transcription temporarily unavailable. You can type your response instead.");
+                if (this.onError) {
+                    this.onError(err);
+                }
+            }
+        }
+
+
+
         let questions = [];
         let currentQIndex = -1;
         let isSimActive = false;
@@ -404,6 +589,7 @@
         let videoChunks = [];
         let isAISpeaking = false;
         let activeTranscript = "";
+        let activeTranscriptParts = [];
         
         let totalViolations = 0;
         let tabWarn = 0;
@@ -424,6 +610,18 @@
                 await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
                 console.log("FaceAPI Models Loaded");
                 modelsLoaded = true;
+                
+                // Warm up models using a tiny blank canvas to compile WebGL shaders early
+                try {
+                    const dummyCanvas = document.createElement('canvas');
+                    dummyCanvas.width = 10;
+                    dummyCanvas.height = 10;
+                    await faceapi.detectSingleFace(dummyCanvas, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })).withFaceExpressions();
+                    console.log("FaceAPI Models Warmed Up successfully");
+                } catch(warmupErr) {
+                    console.warn("FaceAPI warmup warning:", warmupErr);
+                }
+                
                 statusLabel = document.getElementById('transcript-status');
                 if (statusLabel) statusLabel.innerText = "MATRIX SYNCHRONIZED";
             } catch(e) {
@@ -534,6 +732,11 @@
             isSimActive = false;
             try {
                 if(typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+
+                if (window.liveTranscriber) {
+                    try { window.liveTranscriber.stop(); } catch(e) {}
+                    window.liveTranscriber = null;
+                }
                 if(typeof recognition !== 'undefined' && recognition) {
                     recognition.onend = null;
                     recognition.onresult = null;
@@ -660,6 +863,7 @@
                 }
             }
             
+            // startAudioMetering();
             startIntegrityMonitoring();
             nextQuestion();
         }
@@ -747,9 +951,10 @@
             // Clear transcription display area
             const transcriptionDisp = document.getElementById('last-transcription');
             if (transcriptionDisp) {
-                transcriptionDisp.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Transcription will appear here... (For automatic voice transcribing, please use Google Chrome or Microsoft Edge)</span>';
+                transcriptionDisp.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Transcription will appear here...</span>';
             }
             activeTranscript = "";
+            activeTranscriptParts = [];
             
             await speak(q);
             
@@ -839,68 +1044,80 @@
         }
 
         function startVoiceRecognition() {
+            console.log("startVoiceRecognition() called");
+            
+            // Stop legacy ChunkAudioTranscriber if running
+            if (window.liveTranscriber) {
+                try { window.liveTranscriber.stop(); } catch(e) {}
+                window.liveTranscriber = null;
+            }
+
+            // Reset transcripts
+            activeTranscript = "";
+            activeTranscriptParts = [];
+
+            const transcriptBox = document.getElementById('live-transcript-box');
+            const statusLabel = document.getElementById('transcript-status');
+            const lastTranscription = document.getElementById('last-transcription');
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("SpeechRecognition not supported in this browser");
+                if (statusLabel) statusLabel.innerText = 'Speech recognition unsupported';
+                showToast("⚠️ Voice transcribing is not supported in this browser. Please use Google Chrome or Edge, or type your response.");
+                showTypeFallback();
+                return;
+            }
+
+            // Cleanup previous recognition instance
             if (window.recognition) {
                 window.recognition.onend = null;
                 window.recognition.onresult = null;
                 window.recognition.onerror = null;
-                try {
-                    window.recognition.abort();
-                } catch (e) {
-                    console.warn("Failed to abort previous SpeechRecognition instance:", e);
-                }
+                try { window.recognition.abort(); } catch(e) {}
                 window.recognition = null;
             }
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if(!SpeechRecognition) {
-                showToast("⚠️ Speech recognition is not supported in this browser. We highly recommend using Google Chrome or Microsoft Edge for the best experience.");
-                showTypeFallback();
-                return;
-            }
-            window.recognition = new SpeechRecognition();
-            const activeRecognition = window.recognition;
+            const activeRecognition = new SpeechRecognition();
+            window.recognition = activeRecognition;
             activeRecognition.continuous = true;
             activeRecognition.interimResults = true;
             activeRecognition.lang = 'en-US';
-            
+
             let previousTranscript = '';
             let sessionFinalTranscript = '';
-            activeTranscript = '';
-            
-            const transcriptBox = document.getElementById('live-transcript-box');
-            const statusLabel = document.getElementById('transcript-status');
-            const lastTranscription = document.getElementById('last-transcription');
-            
-            transcriptBox.className = 'listening';
-            statusLabel.innerText = 'Listening for response...';
-            lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below. Note: Google Chrome/Edge is recommended for voice transcribing)</span>';
-            
+
+            if (transcriptBox) transcriptBox.className = 'listening';
+            if (statusLabel) statusLabel.innerText = 'Listening for response...';
+            if (lastTranscription) {
+                lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below. Note: Google Chrome/Edge recommended)</span>';
+            }
+
             // User Speaking Visual Glow Handlers
             const handleUserSpeakingStart = () => {
                 if (window.recognition !== activeRecognition) return;
-                transcriptBox.classList.add('user-speaking');
-                statusLabel.innerText = "Listening (Speaking... 🎤)";
+                if (transcriptBox) transcriptBox.classList.add('user-speaking');
+                if (statusLabel) statusLabel.innerText = "Listening (Speaking... 🎤)";
             };
 
             const handleUserSpeakingEnd = () => {
                 if (window.recognition !== activeRecognition) return;
-                transcriptBox.classList.remove('user-speaking');
-                statusLabel.innerText = "Listening for response...";
+                if (transcriptBox) transcriptBox.classList.remove('user-speaking');
+                if (statusLabel) statusLabel.innerText = "Listening for response...";
             };
 
             activeRecognition.onspeechstart = handleUserSpeakingStart;
             activeRecognition.onsoundstart = handleUserSpeakingStart;
-            
             activeRecognition.onspeechend = handleUserSpeakingEnd;
             activeRecognition.onsoundend = handleUserSpeakingEnd;
 
             activeRecognition.onresult = (event) => {
                 if (window.recognition !== activeRecognition) return;
-                if (isAISpeaking || !isAnswering) return; // Do not process results when AI is speaking or not answering
-                
+                if (isAISpeaking || !isAnswering) return;
+
                 let currentFinal = '';
                 let interimTranscript = '';
-                
+
                 for (let i = 0; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         currentFinal += event.results[i][0].transcript;
@@ -908,17 +1125,17 @@
                         interimTranscript += event.results[i][0].transcript;
                     }
                 }
-                
+
                 sessionFinalTranscript = currentFinal;
                 let rawTranscript = (previousTranscript + " " + sessionFinalTranscript + " " + interimTranscript).trim();
                 activeTranscript = formatTranscript(rawTranscript);
-                
+
                 const fallbackArea = document.getElementById('typing-fallback-area');
                 if (fallbackArea && document.getElementById('typing-container').style.display !== 'none') {
                     if (document.activeElement !== fallbackArea) {
                         fallbackArea.value = activeTranscript;
                     }
-                } else {
+                } else if (lastTranscription) {
                     let finalPart = formatTranscript(previousTranscript + " " + sessionFinalTranscript);
                     let interimPart = interimTranscript;
                     if (finalPart && interimPart) {
@@ -957,8 +1174,7 @@
 
             activeRecognition.onend = () => {
                 if (window.recognition !== activeRecognition) return;
-                
-                transcriptBox.classList.remove('user-speaking');
+                if (transcriptBox) transcriptBox.classList.remove('user-speaking');
                 
                 if (sessionFinalTranscript) {
                     previousTranscript = (previousTranscript + " " + sessionFinalTranscript).trim();
@@ -973,8 +1189,63 @@
                     }, 100);
                 }
             };
-            
+
             tryStart();
+        }
+
+        function startAudioMetering() {
+            if (!mediaStream) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                
+                audioContext = new AudioContext();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                microphone = audioContext.createMediaStreamSource(mediaStream);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                microphone.connect(analyser);
+                
+                const checkVolume = () => {
+                    if (!isSimActive) {
+                        try { audioContext.close(); } catch(e) {}
+                        return;
+                    }
+                    
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        sum += dataArray[i];
+                    }
+                    const averageVolume = sum / bufferLength;
+                    
+                    const transcriptBox = document.getElementById('live-transcript-box');
+                    const statusLabel = document.getElementById('transcript-status');
+                    
+                    // If candidate is answering, not speaking and volume is above threshold
+                    if (isAnswering && !isAISpeaking && averageVolume > 20) {
+                        if (transcriptBox && !transcriptBox.classList.contains('user-speaking')) {
+                            transcriptBox.classList.add('user-speaking');
+                            if (statusLabel) statusLabel.innerText = "Listening (Speaking... 🎤)";
+                        }
+                    } else {
+                        if (transcriptBox && transcriptBox.classList.contains('user-speaking')) {
+                            if (!transcriptBox.classList.contains('rec-speaking')) {
+                                transcriptBox.classList.remove('user-speaking');
+                                if (statusLabel) statusLabel.innerText = "Listening for response...";
+                            }
+                        }
+                    }
+                    
+                    requestAnimationFrame(checkVolume);
+                };
+                
+                requestAnimationFrame(checkVolume);
+            } catch(e) {
+                console.warn("Failed to initialize audio metering:", e);
+            }
         }
 
         function toggleTypingFallback() {
@@ -1021,6 +1292,11 @@
         }
 
         async function handleQuestionTimeout(transcript) {
+
+            if (window.liveTranscriber) {
+                try { window.liveTranscriber.stop(); } catch(e) {}
+                window.liveTranscriber = null;
+            }
             if(window.recognition) {
                 window.recognition.onend = null;
                 window.recognition.onresult = null;
@@ -1358,6 +1634,11 @@
             clearInterval(timerInterval);
             if(qTimerInterval) clearInterval(qTimerInterval);
             
+
+            if (window.liveTranscriber) {
+                try { window.liveTranscriber.stop(); } catch(e) {}
+                window.liveTranscriber = null;
+            }
             if(window.recognition) {
                 window.recognition.onend = null;
                 window.recognition.onresult = null;

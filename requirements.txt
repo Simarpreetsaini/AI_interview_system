@@ -20,8 +20,6 @@ redis
 PyJWT
 boto3
 streamlit
-faster-whisper
 faiss-cpu
 sentence-transformers
 openai
-vosk

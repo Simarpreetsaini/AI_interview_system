@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 def analyze_answer_offline(question, answer, emotion):
     if not answer or len(answer.strip()) < 5:
-        return 0.0
+        return 0.0, "Answer is too short or empty."
 
     answer_stripped = answer.strip()
     word_count = len(answer_stripped.split())
@@ -50,7 +50,7 @@ def analyze_answer_offline(question, answer, emotion):
     final_score = base_score + bonus
     final_score = max(0, min(100, final_score))
 
-    return round(final_score, 2)
+    return round(final_score, 2), "Offline TF-IDF evaluation (No AI feedback available)."
 
 def clean_json_text(text):
     text = text.strip()
@@ -106,7 +106,7 @@ def evaluate_answer_gemini(question, answer, emotion, api_key):
         score = float(eval_data.get("score", 50.0))
         feedback = eval_data.get("feedback", "")
         print(f"Gemini Evaluation Score: {score}. Feedback: {feedback}")
-        return round(max(0.0, min(100.0, score)), 2)
+        return round(max(0.0, min(100.0, score)), 2), feedback
 
 def analyze_answer(question, answer, emotion):
     """
@@ -118,8 +118,8 @@ def analyze_answer(question, answer, emotion):
     if gemini_key:
         try:
             print("Running answer evaluation using Gemini 1.5 Flash...")
-            score = evaluate_answer_gemini(question, answer, emotion, gemini_key)
-            return score
+            score, feedback = evaluate_answer_gemini(question, answer, emotion, gemini_key)
+            return score, feedback
         except Exception as e:
             print(f"Gemini evaluation failed: {e}. Falling back to other models...")
 
@@ -154,8 +154,9 @@ def analyze_answer(question, answer, emotion):
             result_json = response.choices[0].message.content
             data = json.loads(result_json)
             score = float(data.get("score", 50.0))
-            print(f"GPT-4o Evaluation Score: {score}. Feedback: {data.get('feedback')}")
-            return round(max(0.0, min(100.0, score)), 2)
+            feedback = data.get("feedback", "")
+            print(f"GPT-4o Evaluation Score: {score}. Feedback: {feedback}")
+            return round(max(0.0, min(100.0, score)), 2), feedback
         except Exception as e:
             print(f"GPT-4o evaluation failed: {e}. Falling back to offline evaluation.")
 
@@ -189,8 +190,9 @@ def analyze_answer(question, answer, emotion):
                 content = res["message"]["content"]
                 data = json.loads(content)
                 score = float(data.get("score", 50.0))
-                print(f"Llama 3 Evaluation Score: {score}. Feedback: {data.get('feedback')}")
-                return round(max(0.0, min(100.0, score)), 2)
+                feedback = data.get("feedback", "")
+                print(f"Llama 3 Evaluation Score: {score}. Feedback: {feedback}")
+                return round(max(0.0, min(100.0, score)), 2), feedback
         except Exception as e:
             print(f"Llama 3 local evaluation failed: {e}. Falling back to offline evaluation.")
 

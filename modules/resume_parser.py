@@ -3,13 +3,23 @@ import re
 
 # Large skill database
 SKILLS_DB = [
-    "python","java","c++","sql","mysql","mongodb",
-    "machine learning","deep learning","data science",
-    "data analysis","pandas","numpy","scikit-learn",
-    "tensorflow","keras","opencv","computer vision",
-    "nlp","natural language processing",
-    "html","css","javascript","react","nodejs",
-    "git","linux","docker","aws", "communication", "leadership"
+    # Languages
+    "python", "java", "c++", "c#", "c", "golang", "go", "ruby", "php", "rust", "swift", "kotlin", "typescript", "r", "scala",
+    # Databases
+    "sql", "mysql", "mongodb", "postgresql", "postgres", "sqlite", "redis", "oracle", "cassandra", "dynamodb",
+    # ML & Data Science
+    "machine learning", "deep learning", "data science", "data analysis", "pandas", "numpy", "scikit-learn",
+    "tensorflow", "keras", "opencv", "computer vision", "nlp", "natural language processing",
+    # Frontend Technologies
+    "html", "css", "javascript", "js", "react", "nodejs", "node.js", "vue", "vuejs", "angular", "angularjs", "svelte", "jquery", "tailwind", "bootstrap",
+    # Backend Frameworks
+    "django", "flask", "fastapi", "spring", "spring boot", "express", "express.js", "nestjs", "laravel",
+    # Mobile Development
+    "flutter", "react native", "android", "ios",
+    # DevOps & Infrastructure
+    "git", "linux", "docker", "aws", "kubernetes", "k8s", "terraform", "jenkins", "gcp", "azure",
+    # Soft Skills & Methodology
+    "communication", "leadership", "agile", "scrum"
 ]
 
 def extract_text_from_pdf(file):
@@ -35,13 +45,53 @@ def parse_resume(file):
         text = ""
 
     text_lower = text.lower()
-    detected_skills = []
+    detected_skills_raw = []
 
-    # Skill detection
+    # Canonical mapping to normalize synonyms and ensure proper capitalization
+    CANONICAL_NAMES = {
+        "python": "Python", "java": "Java", "c++": "C++", "c#": "C#", "c": "C", 
+        "golang": "Go", "go": "Go", "ruby": "Ruby", "php": "PHP", "rust": "Rust", 
+        "swift": "Swift", "kotlin": "Kotlin", "typescript": "TypeScript", "r": "R", "scala": "Scala",
+        "sql": "SQL", "mysql": "MySQL", "mongodb": "MongoDB", "postgresql": "PostgreSQL", 
+        "postgres": "PostgreSQL", "sqlite": "SQLite", "redis": "Redis", "oracle": "Oracle", 
+        "cassandra": "Cassandra", "dynamodb": "DynamoDB",
+        "machine learning": "Machine Learning", "deep learning": "Deep Learning", 
+        "data science": "Data Science", "data analysis": "Data Analysis", 
+        "pandas": "Pandas", "numpy": "NumPy", "scikit-learn": "Scikit-Learn",
+        "tensorflow": "TensorFlow", "keras": "Keras", "opencv": "OpenCV", 
+        "computer vision": "Computer Vision", "nlp": "NLP", "natural language processing": "NLP",
+        "html": "HTML", "css": "CSS", "javascript": "JavaScript", "js": "JavaScript", 
+        "react": "React", "nodejs": "Node.js", "node.js": "Node.js", "vue": "Vue.js", 
+        "vuejs": "Vue.js", "angular": "Angular", "angularjs": "Angular", 
+        "svelte": "Svelte", "jquery": "jQuery", "tailwind": "Tailwind CSS", 
+        "bootstrap": "Bootstrap", "django": "Django", "flask": "Flask", 
+        "fastapi": "FastAPI", "spring": "Spring Boot", "spring boot": "Spring Boot", 
+        "express": "Express.js", "express.js": "Express.js", "nestjs": "NestJS", 
+        "laravel": "Laravel", "flutter": "Flutter", "react native": "React Native", 
+        "android": "Android", "ios": "iOS", "git": "Git", "linux": "Linux", 
+        "docker": "Docker", "aws": "AWS", "kubernetes": "Kubernetes", "k8s": "Kubernetes", 
+        "terraform": "Terraform", "jenkins": "Jenkins", "gcp": "GCP", "azure": "Azure",
+        "communication": "Communication", "leadership": "Leadership", 
+        "agile": "Agile", "scrum": "Scrum"
+    }
+
+    # Skill detection using regex word boundaries to prevent substring false-positives
     for skill in SKILLS_DB:
-        if skill.lower() in text_lower:
-            detected_skills.append(skill.title())
+        skill_lower = skill.lower().strip()
+        pattern = r'\b' + re.escape(skill_lower) + r'\b'
+        # Handle custom symbols not matching standard \b boundary
+        if skill_lower == 'c++':
+            pattern = r'\bc\+\+'
+        elif skill_lower == 'c#':
+            pattern = r'\bc\#'
+        elif skill_lower == '.net':
+            pattern = r'\.net\b'
             
+        if re.search(pattern, text_lower):
+            canonical = CANONICAL_NAMES.get(skill_lower, skill.title())
+            detected_skills_raw.append(canonical)
+            
+    detected_skills = list(sorted(set(detected_skills_raw)))
     if not detected_skills:
         detected_skills = ["Python"]
 

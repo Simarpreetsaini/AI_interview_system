@@ -593,9 +593,18 @@ input:focus {
     gap: 10px;
 }
 
+.simulation-container {
+    min-height: 100vh;
+    padding: 2rem 1.5rem;
+    width: 100%;
+}
+
 @media (max-width: 768px) {
-    .video-wrapper {
-        max-height: 40vh;
+    .simulation-container {
+        padding: 1rem 0.5rem;
+    }
+    .simulation-grid {
+        gap: 1rem;
     }
     .emotion-matrix {
         position: relative;
