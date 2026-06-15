@@ -211,6 +211,10 @@ async def favicon():
 async def chrome_devtools():
     return {"status": "ok"}
 
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 # Serve HTML files
 NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
 
