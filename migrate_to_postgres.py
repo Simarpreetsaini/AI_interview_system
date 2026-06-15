@@ -14,7 +14,12 @@ def run_migration():
     load_dotenv()
 
     sqlite_url = "sqlite:///./interview_system.db"
-    postgres_url = os.getenv("DATABASE_URL")
+    
+    # Allow passing PostgreSQL connection string as a command line argument
+    if len(sys.argv) > 1 and (sys.argv[1].startswith("postgres://") or sys.argv[1].startswith("postgresql://")):
+        postgres_url = sys.argv[1]
+    else:
+        postgres_url = os.getenv("DATABASE_URL")
 
     if not postgres_url:
         print("❌ Error: DATABASE_URL environment variable is not set in your .env file.")
@@ -87,7 +92,9 @@ def run_migration():
                     source=sq_user.source,
                     email=sq_user.email,
                     phone=sq_user.phone,
-                    integrity_notes=sq_user.integrity_notes
+                    integrity_notes=sq_user.integrity_notes,
+                    skills=sq_user.skills,
+                    age=sq_user.age
                 )
                 postgres_db.add(new_user)
                 migrated_user_count += 1
@@ -124,7 +131,8 @@ def run_migration():
                     answer=sq_session.answer,
                     emotion=sq_session.emotion,
                     score=sq_session.score,
-                    video_url=sq_session.video_url
+                    video_url=sq_session.video_url,
+                    evaluation_feedback=sq_session.evaluation_feedback
                 )
                 postgres_db.add(new_session)
                 migrated_session_count += 1

@@ -367,7 +367,7 @@ async def upload_resume(
         if not source:
             source = detected_source
 
-    questions = retrieve_semantic_questions(skills, experience, domain, source)
+    questions = retrieve_semantic_questions(skills, experience, domain, source, username, db)
 
     # Update user's resume_path and experience in DB if user is logged in
     if username:

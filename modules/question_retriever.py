@@ -53,7 +53,7 @@ def init_retriever():
         _model = None
         return False
 
-def retrieve_semantic_questions(skills, experience_level="fresher", domain=None, source=None):
+def retrieve_semantic_questions(skills, experience_level="fresher", domain=None, source=None, username=None, db=None):
     """
     Retrieve questions using FAISS vector search based on target skills and domain context.
     Falls back to original keyword generator on failure.
@@ -62,9 +62,22 @@ def retrieve_semantic_questions(skills, experience_level="fresher", domain=None,
     if not init_retriever():
         # Fallback to standard generator
         from modules.question_generator import generate_questions
-        return generate_questions(skills, experience_level, domain, source)
+        return generate_questions(skills, experience_level, domain, source, username, db)
         
     try:
+        # Fetch previously asked questions
+        previously_asked = set()
+        if username and db:
+            try:
+                from models import InterviewSession
+                from sqlalchemy import func
+                sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(username.strip())).all()
+                for s in sessions:
+                    if s.question:
+                        previously_asked.add(s.question.strip().lower())
+            except Exception as e:
+                print(f"Error loading previously asked questions: {e}")
+
         # Determine number of questions based on experience level
         if experience_level.lower() == "experienced":
             total_count = random.randint(6, 7)
@@ -90,30 +103,86 @@ def retrieve_semantic_questions(skills, experience_level="fresher", domain=None,
         k = min(40, len(_all_questions))
         distances, indices = _index.search(query_embedding, k)
         
-        retrieved_tech_questions = []
+        retrieved_tech_pool = []
         for idx in indices[0]:
             if idx != -1 and idx < len(_all_questions):
-                retrieved_tech_questions.append(_all_questions[idx])
+                q = _all_questions[idx]
+                if q.strip().lower() not in previously_asked:
+                    retrieved_tech_pool.append(q)
                 
-        # Inject direct BANK technical questions for candidate's parsed skills to guarantee a match
-        for s in skills:
-            s_lower = s.lower().strip()
-            for key in BANK:
-                if key == s_lower or key in s_lower or s_lower in key:
-                    if key != "hard_skills":
-                        retrieved_tech_questions.extend(BANK[key])
-                        
-        # Deduplicate the merged technical question pool
-        retrieved_tech_questions = list(set(retrieved_tech_questions))
-                        
-        # Shuffle retrieved technical questions and slice to target count
-        random.shuffle(retrieved_tech_questions)
-        final_tech = retrieved_tech_questions[:tech_count]
+        # 1. Distribute technical questions across skills evenly
+        normalized_skills = [s.lower().strip() for s in skills]
         
-        # Get behavioral/hard skills questions (non-technical/management/integrity)
-        hard_skills_pool = list(BANK.get("hard_skills", GENERAL_QUESTIONS))
+        skill_to_bank_key = {}
+        for skill_name in normalized_skills:
+            for key in BANK:
+                if key != "hard_skills":
+                    if key == skill_name or key in skill_name or skill_name in key:
+                        skill_to_bank_key[skill_name] = key
+                        break
+
+        skill_pools = {}
+        for skill_name, key in skill_to_bank_key.items():
+            pool = [q for q in BANK[key] if q.strip().lower() not in previously_asked]
+            random.shuffle(pool)
+            skill_pools[skill_name] = pool
+
+        final_tech = []
+        # Round-robin selection across skills
+        skills_list = list(skill_pools.keys())
+        if skills_list:
+            skill_index = 0
+            attempts = 0
+            max_attempts = tech_count * 5
+            while len(final_tech) < tech_count and attempts < max_attempts:
+                current_skill = skills_list[skill_index % len(skills_list)]
+                pool = skill_pools[current_skill]
+                if pool:
+                    final_tech.append(pool.pop(0))
+                skill_index += 1
+                attempts += 1
+                if not any(skill_pools.values()):
+                    break
+
+        # Fill in remaining technical questions from retrieved FAISS pool
+        if len(final_tech) < tech_count:
+            random.shuffle(retrieved_tech_pool)
+            for q in retrieved_tech_pool:
+                if q not in final_tech:
+                    final_tech.append(q)
+                    if len(final_tech) == tech_count:
+                        break
+
+        # Fallback to previously asked questions if pool is depleted
+        if len(final_tech) < tech_count:
+            fallback_pool = []
+            for idx in indices[0]:
+                if idx != -1 and idx < len(_all_questions):
+                    fallback_pool.append(_all_questions[idx])
+            for key, q_list in BANK.items():
+                if key != "hard_skills":
+                    fallback_pool.extend(q_list)
+            random.shuffle(fallback_pool)
+            for q in fallback_pool:
+                if q not in final_tech:
+                    final_tech.append(q)
+                    if len(final_tech) == tech_count:
+                        break
+
+        # 2. Get behavioral/hard skills questions
+        hard_skills_pool = [q for q in BANK.get("hard_skills", []) if q.strip().lower() not in previously_asked]
         random.shuffle(hard_skills_pool)
         final_hard = hard_skills_pool[:hard_count]
+        
+        # Fallback for hard skills if pool runs dry
+        if len(final_hard) < hard_count:
+            all_hard = list(BANK.get("hard_skills", GENERAL_QUESTIONS))
+            random.shuffle(all_hard)
+            for q in all_hard:
+                if q not in final_hard:
+                    final_hard.append(q)
+                    if len(final_hard) == hard_count:
+                        break
         
         # Combine and final shuffle
         final_questions = final_tech + final_hard
@@ -124,4 +193,4 @@ def retrieve_semantic_questions(skills, experience_level="fresher", domain=None,
     except Exception as e:
         print(f"FAISS search failed: {e}. Falling back to keyword-based search.")
         from modules.question_generator import generate_questions
-        return generate_questions(skills, experience_level, domain, source)
+        return generate_questions(skills, experience_level, domain, source, username, db)

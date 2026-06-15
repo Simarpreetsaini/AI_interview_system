@@ -446,7 +446,7 @@ def classify_domain_and_source(skills):
         
     return "Computer Science", "Top 150 Interview Questions"
 
-def generate_questions(skills, experience_level="fresher", domain=None, source=None):
+def generate_questions(skills, experience_level="fresher", domain=None, source=None, username=None, db=None):
     # Automatically classify domain and source if not explicitly provided
     if not domain or not source:
         detected_domain, detected_source = classify_domain_and_source(skills)
@@ -455,42 +455,18 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
         if not source:
             source = detected_source
 
-    technical_pool = []
-    
-    # 1. Gather technical questions matching candidate's specific skills from the BANK
-    found_any_skill = False
-    for s in skills:
-        s_lower = s.lower().strip()
-        # Look for matching keys in BANK (ignoring behavioral/hard_skills here)
-        for key in BANK:
-            if key == s_lower or key in s_lower or s_lower in key:
-                if key != "hard_skills":
-                    technical_pool.extend(BANK[key])
-                    found_any_skill = True
-
-    # Deduplicate skill questions
-    technical_pool = list(set(technical_pool))
-
-    # 2. Combine and mix generic source-level questions to maintain breadth
-    if source and source in SOURCE_QUESTIONS:
-        source_pool = list(SOURCE_QUESTIONS[source])
-        if found_any_skill:
-            random.shuffle(technical_pool)
-            random.shuffle(source_pool)
-            # Mix both, taking up to 5 generic questions to complement skill-specific ones
-            technical_pool = technical_pool + source_pool[:5]
-        else:
-            technical_pool = source_pool
-    
-    # Deduplicate combined pool
-    technical_pool = list(set(technical_pool))
-    
-    # 3. Fallback defaults if the pool is too small
-    if len(technical_pool) < 10:
-        technical_pool.extend(GENERAL_QUESTIONS)
-        technical_pool.extend(BANK.get("cloud", []))
-        technical_pool.extend(BANK.get("devops", []))
-        technical_pool = list(set(technical_pool))
+    # Fetch previously asked questions
+    previously_asked = set()
+    if username and db:
+        try:
+            from models import InterviewSession
+            from sqlalchemy import func
+            sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(username.strip())).all()
+            for s in sessions:
+                if s.question:
+                    previously_asked.add(s.question.strip().lower())
+        except Exception as e:
+            print(f"Error loading previously asked questions: {e}")
 
     # Determine counts based on experience
     if experience_level.lower() == "experienced":
@@ -503,14 +479,87 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
     tech_count = int(total_count * tech_ratio)
     hard_count = total_count - tech_count
 
-    # Shuffle and pick
-    random.shuffle(technical_pool)
-    hard_skills_pool = list(BANK.get("hard_skills", []))
+    # 1. Distribute technical questions across skills evenly
+    normalized_skills = [s.lower().strip() for s in skills]
+    
+    skill_to_bank_key = {}
+    for skill_name in normalized_skills:
+        for key in BANK:
+            if key != "hard_skills":
+                if key == skill_name or key in skill_name or skill_name in key:
+                    skill_to_bank_key[skill_name] = key
+                    break
+
+    skill_pools = {}
+    for skill_name, key in skill_to_bank_key.items():
+        pool = [q for q in BANK[key] if q.strip().lower() not in previously_asked]
+        random.shuffle(pool)
+        skill_pools[skill_name] = pool
+
+    final_tech = []
+    # Round-robin selection across skills
+    skills_list = list(skill_pools.keys())
+    if skills_list:
+        skill_index = 0
+        attempts = 0
+        max_attempts = tech_count * 5
+        while len(final_tech) < tech_count and attempts < max_attempts:
+            current_skill = skills_list[skill_index % len(skills_list)]
+            pool = skill_pools[current_skill]
+            if pool:
+                final_tech.append(pool.pop(0))
+            skill_index += 1
+            attempts += 1
+            if not any(skill_pools.values()):
+                break
+
+    # If more technical questions are needed, pick from generic source / BANK questions (excluding previously asked)
+    if len(final_tech) < tech_count:
+        general_tech_pool = []
+        if source and source in SOURCE_QUESTIONS:
+            general_tech_pool.extend(SOURCE_QUESTIONS[source])
+        for key, q_list in BANK.items():
+            if key != "hard_skills":
+                general_tech_pool.extend(q_list)
+        
+        general_tech_pool = [q for q in set(general_tech_pool) if q.strip().lower() not in previously_asked]
+        random.shuffle(general_tech_pool)
+        for q in general_tech_pool:
+            if q not in final_tech:
+                final_tech.append(q)
+                if len(final_tech) == tech_count:
+                    break
+
+    # If STILL not enough technical questions (ran out of unused questions), fallback to allowing previously asked questions
+    if len(final_tech) < tech_count:
+        fallback_pool = []
+        for key, q_list in BANK.items():
+            if key != "hard_skills":
+                fallback_pool.extend(q_list)
+        random.shuffle(fallback_pool)
+        for q in fallback_pool:
+            if q not in final_tech:
+                final_tech.append(q)
+                if len(final_tech) == tech_count:
+                    break
+
+    # 2. Gather behavioral/hard skills questions
+    hard_skills_pool = [q for q in BANK.get("hard_skills", []) if q.strip().lower() not in previously_asked]
     random.shuffle(hard_skills_pool)
-    
-    final_questions = technical_pool[:tech_count] + hard_skills_pool[:hard_count]
-    
-    # Final shuffle to mix tech and hard skills
+    final_hard = hard_skills_pool[:hard_count]
+
+    # Fallback for hard skills if pool runs dry
+    if len(final_hard) < hard_count:
+        all_hard = list(BANK.get("hard_skills", GENERAL_QUESTIONS))
+        random.shuffle(all_hard)
+        for q in all_hard:
+            if q not in final_hard:
+                final_hard.append(q)
+                if len(final_hard) == hard_count:
+                    break
+
+    # Combine and final shuffle
+    final_questions = final_tech + final_hard
     random.shuffle(final_questions)
     
     return final_questions[:total_count]
