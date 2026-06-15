@@ -1043,8 +1043,8 @@
             });
         }
 
-        function startVoiceRecognition() {
-            console.log("startVoiceRecognition() called");
+        function startVoiceRecognition(isRestart = false) {
+            console.log("startVoiceRecognition() called, isRestart:", isRestart);
             
             // Stop legacy ChunkAudioTranscriber if running
             if (window.liveTranscriber) {
@@ -1052,9 +1052,11 @@
                 window.liveTranscriber = null;
             }
 
-            // Reset transcripts
-            activeTranscript = "";
-            activeTranscriptParts = [];
+            if (!isRestart) {
+                // Reset transcripts only for a fresh question
+                activeTranscript = "";
+                activeTranscriptParts = [];
+            }
 
             const transcriptBox = document.getElementById('live-transcript-box');
             const statusLabel = document.getElementById('transcript-status');
@@ -1064,12 +1066,14 @@
             if (!SpeechRecognition) {
                 console.warn("SpeechRecognition not supported in this browser");
                 if (statusLabel) statusLabel.innerText = 'Speech recognition unsupported';
-                showToast("⚠️ Voice transcribing is not supported in this browser. Please use Google Chrome or Edge, or type your response.");
-                showTypeFallback();
+                if (!isRestart) {
+                    showToast("⚠️ Voice transcribing is not supported in this browser. Please use Google Chrome or Edge, or type your response.");
+                    showTypeFallback();
+                }
                 return;
             }
 
-            // Cleanup previous recognition instance
+            // Cleanup previous recognition instance safely
             if (window.recognition) {
                 window.recognition.onend = null;
                 window.recognition.onresult = null;
@@ -1084,12 +1088,13 @@
             activeRecognition.interimResults = true;
             activeRecognition.lang = 'en-US';
 
-            let previousTranscript = '';
+            // Initialize previousTranscript to whatever we have accumulated in activeTranscript so far
+            let previousTranscript = activeTranscript;
             let sessionFinalTranscript = '';
 
-            if (transcriptBox) transcriptBox.className = 'listening';
-            if (statusLabel) statusLabel.innerText = 'Listening for response...';
-            if (lastTranscription) {
+            if (transcriptBox && !isRestart) transcriptBox.className = 'listening';
+            if (statusLabel && !isRestart) statusLabel.innerText = 'Listening for response...';
+            if (lastTranscription && !isRestart) {
                 lastTranscription.innerHTML = '<span style="color: var(--text-muted); opacity: 0.5;">Speak now... (or type below. Note: Google Chrome/Edge recommended)</span>';
             }
 
@@ -1145,6 +1150,8 @@
                     } else {
                         lastTranscription.innerHTML = `<span class="interim" style="opacity:0.5">${interimPart}</span>`;
                     }
+                    // Auto-scroll to the bottom of the scroll container
+                    lastTranscription.scrollTop = lastTranscription.scrollHeight;
                 }
             };
 
@@ -1205,16 +1212,11 @@
                 if (window.recognition !== activeRecognition) return;
                 if (transcriptBox) transcriptBox.classList.remove('user-speaking');
                 
-                if (sessionFinalTranscript) {
-                    previousTranscript = (previousTranscript + " " + sessionFinalTranscript).trim();
-                    sessionFinalTranscript = '';
-                }
-                
                 if (isSimActive && isAnswering && qTimeLeft > 0 && !hasFatalError) {
                     // Introduce a larger, safer delay (500ms) to allow audio context release and prevent loop thrashing
                     setTimeout(() => {
                         if (window.recognition === activeRecognition && isSimActive && isAnswering && qTimeLeft > 0 && !hasFatalError) {
-                            tryStart();
+                            startVoiceRecognition(true); // Restart as a new SpeechRecognition instance!
                         }
                     }, 500);
                 }
@@ -1481,7 +1483,7 @@
                     if (allDetections.length > 1) triggerWarning('multi-person');
 
                 } catch(e) { console.warn("Detection error", e); }
-            }, 3000); // Optimized to 3s to prevent main thread blocking for SpeechRecognition
+            }, 1000); // Increased frequency to 1s
         }
 
         function triggerWarning(type) {
