@@ -2,6 +2,18 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/favicon.ico",
+      "destination": "/static/images/logo.png"
+    },
+    {
+      "source": "/favicon.png",
+      "destination": "/static/images/logo.png"
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "destination": "/static/images/logo.png"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://ai-interview-system-remk.onrender.com/api/:path*"
     },
@@ -24,6 +36,13 @@
     },
     {
       "source": "/favicon.ico",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" },
+        { "key": "Content-Type", "value": "image/png" }
+      ]
+    },
+    {
+      "source": "/favicon.png",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" },
         { "key": "Content-Type", "value": "image/png" }

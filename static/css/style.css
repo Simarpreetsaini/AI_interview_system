@@ -514,3 +514,197 @@ input:focus {
     max-width: 800px;
 }
 
+/* Responsive Layouts and Padding Overrides */
+@media (max-width: 768px) {
+    .simulation-layout, .manager-layout {
+        padding: 1rem;
+    }
+    .box {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+    .topbar {
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .simulation-layout, .manager-layout {
+        padding: 0.75rem;
+    }
+    .box {
+        padding: 1rem;
+        border-radius: 12px;
+    }
+    .topbar {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Video Section Wrappers & Overlays */
+.video-section-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.video-wrapper {
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #000;
+    max-height: 50vh;
+    aspect-ratio: 16/9;
+    width: 100%;
+}
+
+.emotion-matrix {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    width: 180px;
+    z-index: 100;
+    transition: all 0.3s ease;
+}
+
+.integrity-warning-badge {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    z-index: 10;
+    border: 2px solid white;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+    display: none;
+    align-items: center;
+    gap: 10px;
+}
+
+@media (max-width: 768px) {
+    .video-wrapper {
+        max-height: 40vh;
+    }
+    .emotion-matrix {
+        position: relative;
+        bottom: auto;
+        right: auto;
+        width: 100%;
+        margin-top: 1rem;
+        background: rgba(18, 24, 34, 0.8);
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .overlay-status {
+        top: 10px !important;
+        left: 10px !important;
+        font-size: 0.65rem !important;
+        padding: 6px 12px !important;
+    }
+    .integrity-warning-badge {
+        top: 50px !important;
+        left: 10px !important;
+        font-size: 0.7rem !important;
+        padding: 6px 12px !important;
+    }
+}
+
+/* Modal Responsive Grid Layout */
+.modal-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 3rem;
+}
+
+@media (max-width: 992px) {
+    .modal-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .modal-content {
+        padding: 1.5rem;
+        margin: 1rem auto;
+        border-radius: 16px;
+        width: 95%;
+    }
+    .close {
+        right: 1.5rem;
+        top: 1rem;
+        font-size: 24px;
+    }
+}
+
+/* Active Session Grid Columns */
+.sim-left-col, .sim-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+}
+
+@media (max-width: 1024px) {
+    .sim-left-col, .sim-right-col {
+        height: auto;
+    }
+    .sim-question-bank-card {
+        height: 250px !important;
+    }
+}
+
+/* Transcript Header & Status Alignment */
+.transcript-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 8px;
+    gap: 10px;
+}
+
+@media (max-width: 480px) {
+    .transcript-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .transcript-header > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+        display: flex;
+    }
+}
+
+/* Transcript Buttons Flow */
+.transcript-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    gap: 10px;
+}
+
+@media (max-width: 480px) {
+    .transcript-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .transcript-actions button {
+        width: 100% !important;
+        text-align: center;
+    }
+}
+
+

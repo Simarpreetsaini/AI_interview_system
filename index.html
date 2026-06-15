@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/logo.png">
-    <link rel="apple-touch-icon" href="/static/images/logo.png">
-    <link rel="shortcut icon" href="/static/images/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
     <title>Advanced AI Interview System — AI-Powered Candidate Evaluation</title>
     <meta name="description" content="AI-powered interview platform with resume parsing, candidate evaluation, and integrity monitoring." />
 
@@ -241,7 +241,7 @@
                             <div id="result-display" style="display: block; width: 100%;">
                                 <div id="status-chips-container" style="margin-bottom: 1rem;"></div>
                                 
-                                <div id="results-stats-grid" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div id="results-stats-grid" class="results-stats-grid" style="margin-bottom: 1rem;">
                                     <div class="box" style="text-align: center; padding: 0.8rem;">
                                         <div style="color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Final Score</div>
                                         <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-cyan); line-height: 1;"><span id="result-score">--</span>%</div>
@@ -422,25 +422,26 @@
                 document.getElementById('results-view').style.display = 'block';
                 document.querySelector('.container').style.maxWidth = '800px';
                 checkResult();
-            } else if (tab === 'login') {
-                if (grid) grid.classList.remove('results-active');
-                document.querySelector('.container').style.maxWidth = '480px';
-                document.getElementById('tab-login').classList.add('active');
-                if (localStorage.getItem('access_token')) {
-                    document.getElementById('post-login-options').style.display = 'block';
-                    updatePostLoginUI();
-                } else {
-                    document.getElementById('login-form').style.display = 'block';
-                }
-            } else if (tab === 'forgot') {
-                if (grid) grid.classList.remove('results-active');
-                document.getElementById('forgot-form').style.display = 'block';
-                document.getElementById('forgot-step1').style.display = 'block';
-                document.getElementById('forgot-step2').style.display = 'none';
             } else {
                 if (grid) grid.classList.remove('results-active');
-                document.getElementById('tab-register').classList.add('active');
-                document.getElementById('register-form').style.display = 'block';
+                document.querySelector('.container').style.maxWidth = '480px';
+                
+                if (tab === 'login') {
+                    document.getElementById('tab-login').classList.add('active');
+                    if (localStorage.getItem('access_token')) {
+                        document.getElementById('post-login-options').style.display = 'block';
+                        updatePostLoginUI();
+                    } else {
+                        document.getElementById('login-form').style.display = 'block';
+                    }
+                } else if (tab === 'forgot') {
+                    document.getElementById('forgot-form').style.display = 'block';
+                    document.getElementById('forgot-step1').style.display = 'block';
+                    document.getElementById('forgot-step2').style.display = 'none';
+                } else {
+                    document.getElementById('tab-register').classList.add('active');
+                    document.getElementById('register-form').style.display = 'block';
+                }
             }
         }
 

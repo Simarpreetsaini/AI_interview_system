@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/logo.png">
-    <link rel="apple-touch-icon" href="/static/images/logo.png">
-    <link rel="shortcut icon" href="/static/images/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
     <title>AI Interview Simulator</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/face-api.min.js"></script>
@@ -224,24 +224,27 @@
 
     <!-- Phase 3: Interview -->
     <div id="phase3" class="simulation-container" style="display: none; min-height: 100vh; padding: 2rem 1.5rem;">
-        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 2rem; max-width: 1400px; margin: 0 auto;">
+        <div class="simulation-grid" style="max-width: 1400px; margin: 0 auto;">
             
             <!-- Left: Visual Feed & Active Question -->
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%;">
+            <div class="sim-left-col">
                 <div class="glass-box" style="padding: 1rem 1.5rem; border-radius: 20px;">
                     <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px;">Active Question</div>
                     <div id="question-display" class="outfit" style="font-size: 1.1rem; color: #fff; font-weight: 600; line-height: 1.4;">Loading next question...</div>
                 </div>
 
-                <div id="video-container" style="border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 15px 30px rgba(0,0,0,0.4); position: relative; border-radius: 24px; overflow: hidden; background: #000; max-height: 50vh; aspect-ratio: 16/9;">
-                    <video id="webcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
-                    <canvas id="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%;"></canvas>
-                    <div class="overlay-status" id="integrity-badge">🛡️ INTEGRITY: SECURE</div>
-                    <div id="integrity-warning-badge" style="display:none; position: absolute; top: 60px; left: 20px; background: rgba(239, 68, 68, 0.9); color: white; padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: 0.8rem; z-index: 10; border: 2px solid white; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); display: none; align-items: center; gap: 10px;">
-                        <span>⚠️ VIOLATION DETECTED (<span id="warning-count-display">0</span>)</span>
-                        <button onclick="dismissViolation()" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; font-weight: 900; line-height: 1; padding: 0 2px; opacity: 0.8;" title="Dismiss">✕</button>
+                <div class="video-section-wrapper">
+                    <div id="video-container" class="video-wrapper">
+                        <video id="webcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
+                        <canvas id="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%;"></canvas>
+                        <div class="overlay-status" id="integrity-badge">🛡️ INTEGRITY: SECURE</div>
+                        <div id="integrity-warning-badge" class="integrity-warning-badge">
+                            <span>⚠️ VIOLATION DETECTED (<span id="warning-count-display">0</span>)</span>
+                            <button onclick="dismissViolation()" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; font-weight: 900; line-height: 1; padding: 0 2px; opacity: 0.8;" title="Dismiss">✕</button>
+                        </div>
                     </div>
-                    <div id="emotion-matrix" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); width: 180px; z-index: 100;">
+                    
+                    <div id="emotion-matrix" class="emotion-matrix">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Neural Matrix</div>
                             <div id="emotion-display" style="font-size: 0.5rem; color: #fff; font-weight: 700; background: rgba(0,229,255,0.2); padding: 2px 6px; border-radius: 4px;">NEUTRAL</div>
@@ -253,7 +256,7 @@
                 </div>
 
                 <div id="live-transcript-box" style="padding: 1rem; border-radius: 20px; background: rgba(18, 24, 34, 0.8); border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                    <div class="transcript-header">
                         <div id="transcript-status" style="font-size: 0.65rem; font-weight: 800; color: var(--primary-cyan); text-transform: uppercase; letter-spacing: 1px;">System Initializing...</div>
                         <div style="display: flex; gap: 1rem;">
                             <div style="text-align: right;"><div style="font-size: 0.5rem; color: var(--text-muted);">ANSWER TIME</div><div id="q-timer" style="font-weight: 800; color: var(--primary-cyan); font-size: 0.9rem;">25s</div></div>
@@ -266,7 +269,7 @@
                     <div id="typing-container" style="display: none; margin-top: 8px;">
                         <textarea id="typing-fallback-area" placeholder="Type your answer here... (Tip: Use Google Chrome or Edge for automatic voice transcribing)" style="width: 100%; height: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; color: #fff; padding: 8px; font-size: 0.85rem; font-family: inherit; resize: none; outline: none; box-sizing: border-box;"></textarea>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <div class="transcript-actions">
                         <button id="btn-submit-answer" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 0.75rem; border-radius: 8px; font-weight: 700; height: auto;" onclick="submitActiveAnswer()">Submit Answer ✓</button>
                         <button id="btn-type-toggle" class="skill-tag" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; color: var(--text-muted); margin: 0;" onclick="toggleTypingFallback()">Type Response ⌨️</button>
                     </div>
@@ -274,8 +277,8 @@
             </div>
 
             <!-- Right: Sidebar Info -->
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%;">
-                <div class="glass-box" style="flex-grow: 1; padding: 1rem; border-radius: 20px; display: flex; flex-direction: column;">
+            <div class="sim-right-col">
+                <div class="glass-box sim-question-bank-card" style="padding: 1rem; border-radius: 20px;">
                     <div style="font-size: 0.6rem; color: var(--primary-cyan); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Question Bank</div>
                     <div id="question-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
                         <!-- Questions will be injected here -->
