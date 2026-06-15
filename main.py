@@ -487,6 +487,20 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
     sessions = db.query(InterviewSession).all()
     users = db.query(User).all()
     
+    # Group sessions by username in memory to avoid N+1 queries and full table scans
+    sessions_by_user = {}
+    for s in sessions:
+        if s.username:
+            u_lower = s.username.strip().lower()
+            if u_lower not in sessions_by_user:
+                sessions_by_user[u_lower] = []
+            sessions_by_user[u_lower].append(s)
+
+    cloudinary_utils = None
+    if os.getenv("CLOUDINARY_CLOUD_NAME"):
+        import cloudinary.utils
+        cloudinary_utils = cloudinary.utils
+    
     # Aggregate by user
     user_records = {}
     
@@ -497,10 +511,9 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
             
         safe_username = u.username.replace("/", "_").replace("\\", "_").replace(" ", "_")
         object_name = f"{safe_username}_full_interview.webm"
-        if os.getenv("CLOUDINARY_CLOUD_NAME"):
-            import cloudinary.utils
+        if cloudinary_utils:
             public_id = f"{safe_username}_full_interview"
-            video_url = cloudinary.utils.cloudinary_url(public_id, resource_type="video", secure=True)[0]
+            video_url = cloudinary_utils.cloudinary_url(public_id, resource_type="video", secure=True)[0]
         else:
             video_url = f"/static/videos/{object_name}" if os.path.exists(f"static/videos/{object_name}") else None
             
@@ -516,8 +529,8 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         else:
             resume_url = None
         
-        # Get all sessions for this user for the transcript
-        user_sessions = db.query(InterviewSession).filter(func.lower(InterviewSession.username) == func.lower(u.username)).all()
+        # Get all sessions for this user from memory
+        user_sessions = sessions_by_user.get(u.username.strip().lower(), [])
         transcript = [{"q": s.question or "", "a": s.answer or "No answer recorded.", "s": s.score or 0, "v": s.video_url, "f": s.evaluation_feedback or ""} for s in user_sessions]
 
         # Compute date/time from first session if sessions exist
