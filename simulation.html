@@ -1481,7 +1481,7 @@
                     if (allDetections.length > 1) triggerWarning('multi-person');
 
                 } catch(e) { console.warn("Detection error", e); }
-            }, 1000); // Increased frequency to 1s
+            }, 3000); // Optimized to 3s to prevent main thread blocking for SpeechRecognition
         }
 
         function triggerWarning(type) {
