@@ -80,11 +80,5 @@
         }
       ]
     }
-  ],
-  "experimentalServices": {
-    "ai-interview-system": {
-      "type": "web",
-      "routePrefix": "/"
-    }
-  }
+  ]
 }
