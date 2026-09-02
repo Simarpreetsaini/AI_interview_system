@@ -732,6 +732,7 @@
             const p = document.getElementById('login-password').value;
             
             if (!u || !p) {
+                showToast("Please enter both username and password.", "warning", 5000, "Credentials Required");
                 showMessage("Credentials required", "#ef4444");
                 return;
             }
@@ -762,11 +763,19 @@
                 document.getElementById('tab-login').classList.add('active');
                 
                 updatePostLoginUI();
+                showToast("Access Granted. Welcome to your interview dashboard!", "success", 5000, "Login Successful");
                 
                 if (document.getElementById('results-view').style.display === 'block') {
                     checkResult();
                 }
             } else {
+                let errorTitle = "Authentication Failed";
+                if (data.message && data.message.toLowerCase().includes("password")) {
+                    errorTitle = "Incorrect Password";
+                } else if (data.message && data.message.toLowerCase().includes("username")) {
+                    errorTitle = "Account Not Found";
+                }
+                showToast(data.message || "Incorrect password entered.", "error", 5000, errorTitle);
                 showMessage(data.message, "#ef4444");
             }
         }
@@ -820,8 +829,16 @@
             const p = document.getElementById('reg-password').value;
             const c = document.getElementById('reg-confirm').value;
 
-            if (!u || !p) { showMessage("Please fill all fields", "#ef4444"); return; }
-            if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
+            if (!u || !p) { 
+                showToast("Please fill in all registration fields.", "warning", 5000, "Missing Information");
+                showMessage("Please fill all fields", "#ef4444"); 
+                return; 
+            }
+            if (p !== c) { 
+                showToast("Passwords do not match! Please verify both password entries.", "error", 5000, "Password Mismatch");
+                showMessage("Passwords do not match", "#ef4444"); 
+                return; 
+            }
 
             const res = await fetch(getApiUrl('/api/register'), {
                 method: 'POST',
@@ -832,8 +849,10 @@
             
             if (data.success) {
                 switchTab('login');
+                showToast("Account created successfully! You can now log in.", "success", 5000, "Registration Successful");
                 showMessage("Registration successful! Access your account now.", "#22c55e");
             } else {
+                showToast(data.message, "error", 5000, "Registration Failed");
                 showMessage(data.message, "#ef4444");
             }
         }
@@ -1106,6 +1125,11 @@
             const u = raw_u ? raw_u.trim() : '';
             const e = document.getElementById('forgot-email').value;
             
+            if (!u) {
+                showToast("Please enter your username.", "warning", 5000, "Missing Username");
+                return;
+            }
+
             const res = await fetch(getApiUrl('/api/verify_reset'), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -1115,8 +1139,10 @@
             if (data.success) {
                 document.getElementById('forgot-step1').style.display = 'none';
                 document.getElementById('forgot-step2').style.display = 'block';
+                showToast("Account verified. You may now enter your new password.", "info", 5000, "Account Verified");
                 showMessage(data.message, "#22c55e");
             } else {
+                showToast(data.message, "error", 5000, "Verification Failed");
                 showMessage(data.message, "#ef4444");
             }
         }
@@ -1127,7 +1153,16 @@
             const p = document.getElementById('forgot-new-password').value;
             const c = document.getElementById('forgot-confirm-password').value;
 
-            if (p !== c) { showMessage("Passwords do not match", "#ef4444"); return; }
+            if (!p || !c) {
+                showToast("Please enter and confirm your new password.", "warning", 5000, "Missing Password");
+                return;
+            }
+
+            if (p !== c) { 
+                showToast("Passwords do not match! Please verify both password entries.", "error", 5000, "Password Mismatch");
+                showMessage("Passwords do not match", "#ef4444"); 
+                return; 
+            }
 
             const res = await fetch(getApiUrl('/api/submit_reset'), {
                 method: 'POST',
@@ -1137,8 +1172,10 @@
             const data = await res.json();
             if (data.success) {
                 switchTab('login');
+                showToast("Password updated successfully! You can now log in with your new password.", "success", 5000, "Password Reset Complete");
                 showMessage(data.message, "#22c55e");
             } else {
+                showToast(data.message, "error", 5000, "Password Reset Failed");
                 showMessage(data.message, "#ef4444");
             }
         }
