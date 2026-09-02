@@ -505,7 +505,7 @@
                             </div>
                         </div>
 
-                        <p id="msg" style="margin-top: 1.5rem; font-size: 0.9rem; min-height: 1.2em; transition: all 0.3s;"></p>
+                        <p id="msg" style="display: none;"></p>
                     </div>
                 </div>
             </div>
@@ -733,7 +733,6 @@
             
             if (!u || !p) {
                 showToast("Please enter both username and password.", "warning", 5000, "Credentials Required");
-                showMessage("Credentials required", "#ef4444");
                 return;
             }
 
@@ -776,7 +775,6 @@
                     errorTitle = "Account Not Found";
                 }
                 showToast(data.message || "Incorrect password entered.", "error", 5000, errorTitle);
-                showMessage(data.message, "#ef4444");
             }
         }
 
@@ -831,12 +829,10 @@
 
             if (!u || !p) { 
                 showToast("Please fill in all registration fields.", "warning", 5000, "Missing Information");
-                showMessage("Please fill all fields", "#ef4444"); 
                 return; 
             }
             if (p !== c) { 
                 showToast("Passwords do not match! Please verify both password entries.", "error", 5000, "Password Mismatch");
-                showMessage("Passwords do not match", "#ef4444"); 
                 return; 
             }
 
@@ -850,10 +846,8 @@
             if (data.success) {
                 switchTab('login');
                 showToast("Account created successfully! You can now log in.", "success", 5000, "Registration Successful");
-                showMessage("Registration successful! Access your account now.", "#22c55e");
             } else {
                 showToast(data.message, "error", 5000, "Registration Failed");
-                showMessage(data.message, "#ef4444");
             }
         }
 
@@ -928,12 +922,8 @@
         function showMessage(text, color) {
             const msg = document.getElementById('msg');
             if (msg) {
-                msg.innerText = text;
-                msg.style.color = color;
-                msg.style.opacity = '1';
-                setTimeout(() => {
-                    msg.style.opacity = '0.5';
-                }, 4000);
+                msg.innerText = '';
+                msg.style.display = 'none';
             }
 
             // Map color to toast type
@@ -941,7 +931,7 @@
             let title = 'Portal Alert';
             if (color === '#ef4444' || color.includes('239')) {
                 type = 'error';
-                title = 'Error';
+                title = (text && text.toLowerCase().includes('password')) ? 'Incorrect Password' : 'Error';
             } else if (color === '#22c55e' || color.includes('34')) {
                 type = 'success';
                 title = 'Success';
