@@ -176,6 +176,148 @@
         .forgot-pwd-btn:hover .forgot-icon {
             transform: rotate(-15deg) scale(1.15);
         }
+
+        /* Toast Notification Container (Right Side) */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 420px;
+            width: calc(100% - 48px);
+            pointer-events: none;
+        }
+
+        .toast-notification {
+            pointer-events: auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 18px;
+            background: rgba(13, 19, 33, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.1);
+            font-family: 'Outfit', sans-serif;
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+            animation: toastSlideInRight 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: transform 0.35s ease, opacity 0.35s ease;
+        }
+
+        .toast-notification.hide {
+            animation: toastSlideOutRight 0.4s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+        }
+
+        @keyframes toastSlideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(120%) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes toastSlideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(130%) scale(0.92);
+            }
+        }
+
+        .toast-notification.error {
+            border-left: 5px solid #ef4444;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(239, 68, 68, 0.25);
+        }
+        .toast-notification.warning {
+            border-left: 5px solid #f59e0b;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.25);
+        }
+        .toast-notification.success {
+            border-left: 5px solid #22c55e;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(34, 197, 94, 0.25);
+        }
+        .toast-notification.info {
+            border-left: 5px solid var(--primary-cyan);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.25);
+        }
+
+        .toast-icon {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+            line-height: 1.2;
+            margin-top: 1px;
+        }
+
+        .toast-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .toast-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .toast-message {
+            font-size: 0.83rem;
+            color: #cbd5e1;
+            line-height: 1.45;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+        .toast-close:hover {
+            color: #fff;
+            transform: scale(1.2);
+        }
+
+        /* 5-second progress bar */
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .toast-progress-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--primary-cyan);
+            animation: toastProgress 5s linear forwards;
+        }
+        .toast-notification.error .toast-progress-bar { background: #ef4444; }
+        .toast-notification.warning .toast-progress-bar { background: #f59e0b; }
+        .toast-notification.success .toast-progress-bar { background: #22c55e; }
+
+        @keyframes toastProgress {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
     </style>
 </head>
 <body>
@@ -481,7 +623,7 @@
 
             if (tab === 'results') {
                 if (!localStorage.getItem('access_token')) {
-                    alert("⛔ Login Required !!!");
+                    showToast("Login Required! Please log in to view your interview performance dossier.", "warning", 5000, "Login Required");
                     switchTab('login');
                     return;
                 }
@@ -696,14 +838,100 @@
             }
         }
 
+        function showToast(message, type = 'error', duration = 5000, customTitle = '') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+
+            let icon = '🔔';
+            let defaultTitle = 'Notification';
+            if (type === 'error') {
+                icon = '⛔';
+                defaultTitle = 'Access Denied';
+            } else if (type === 'warning') {
+                icon = '⚠️';
+                defaultTitle = 'Attention Required';
+            } else if (type === 'success') {
+                icon = '✅';
+                defaultTitle = 'Action Successful';
+            } else if (type === 'info') {
+                icon = 'ℹ️';
+                defaultTitle = 'System Update';
+            }
+
+            const title = customTitle || defaultTitle;
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <div class="toast-body">
+                    <span class="toast-title">${title}</span>
+                    <span class="toast-message">${message}</span>
+                </div>
+                <button class="toast-close" type="button" onclick="dismissToast(this.parentElement)">&times;</button>
+                <div class="toast-progress">
+                    <div class="toast-progress-bar" style="animation-duration: ${duration}ms;"></div>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto dismiss after 5 seconds with smooth exit animation
+            const dismissTimer = setTimeout(() => {
+                dismissToast(toast);
+            }, duration);
+
+            toast._dismissTimer = dismissTimer;
+        }
+
+        function dismissToast(toast) {
+            if (!toast || toast.classList.contains('hide')) return;
+            if (toast._dismissTimer) clearTimeout(toast._dismissTimer);
+            toast.classList.add('hide');
+            setTimeout(() => {
+                if (toast && toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 400);
+        }
+
+        // Global override for any alert to use right-side toast notification
+        window.alert = function(msg) {
+            showToast(msg, 'warning', 5000, 'Notice');
+        };
+
         function showMessage(text, color) {
             const msg = document.getElementById('msg');
-            msg.innerText = text;
-            msg.style.color = color;
-            msg.style.opacity = '1';
-            setTimeout(() => {
-                msg.style.opacity = '0.5';
-            }, 3000);
+            if (msg) {
+                msg.innerText = text;
+                msg.style.color = color;
+                msg.style.opacity = '1';
+                setTimeout(() => {
+                    msg.style.opacity = '0.5';
+                }, 4000);
+            }
+
+            // Map color to toast type
+            let type = 'info';
+            let title = 'Portal Alert';
+            if (color === '#ef4444' || color.includes('239')) {
+                type = 'error';
+                title = 'Error';
+            } else if (color === '#22c55e' || color.includes('34')) {
+                type = 'success';
+                title = 'Success';
+            } else if (color === '#f59e0b' || color.includes('245')) {
+                type = 'warning';
+                title = 'Warning';
+            }
+
+            showToast(text, type, 5000, title);
         }
 
         async function checkResult() {
