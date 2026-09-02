@@ -1,15 +1,12 @@
 fastapi
 uvicorn
 python-multipart
-opencv-python
 numpy
 pandas
 scikit-learn
-matplotlib
 openai-whisper
 torch
 pdfplumber
-gtts
 pydantic
 cloudinary
 sqlalchemy
@@ -18,9 +15,9 @@ python-dotenv
 celery
 redis
 PyJWT
-boto3
-streamlit
 faiss-cpu
 sentence-transformers
 openai
 gunicorn
+reportlab
+

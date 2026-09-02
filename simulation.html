@@ -151,6 +151,14 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes spin-reverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
     </style>
 </head>
 <body class="simulation-layout">
@@ -167,9 +175,105 @@
             <h2 class="outfit">Cognitive Profile</h2>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 2rem;">Help us calibrate the AI model to your profile.</p>
             
+            <style>
+                /* Hide native spinners completely */
+                input[type=number]::-webkit-inner-spin-button, 
+                input[type=number]::-webkit-outer-spin-button {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    margin: 0;
+                }
+                input[type=number] {
+                    -moz-appearance: textfield;
+                    appearance: textfield;
+                }
+                
+                /* Custom spinner styles */
+                .custom-spinner {
+                    position: absolute;
+                    right: 8px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3px;
+                    z-index: 5;
+                }
+                
+                .custom-spinner button {
+                    background: rgba(0, 229, 255, 0.08);
+                    border: 1px solid rgba(0, 229, 255, 0.25);
+                    color: var(--primary-cyan);
+                    cursor: pointer;
+                    padding: 5px 12px;
+                    font-size: 11px;
+                    border-radius: 6px;
+                    line-height: 1;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }
+                
+                .custom-spinner button:hover {
+                    background: var(--primary-cyan);
+                    color: #000;
+                    box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+                }
+                .custom-spinner button:active {
+                    transform: scale(0.92);
+                }
+
+                .age-pill {
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: var(--text-muted);
+                    font-size: 0.76rem;
+                    font-weight: 600;
+                    font-family: 'Outfit', sans-serif;
+                    padding: 5px 11px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }
+                .age-pill:hover {
+                    color: #fff;
+                    border-color: rgba(0, 229, 255, 0.4);
+                    background: rgba(0, 229, 255, 0.1);
+                }
+                .age-pill.active {
+                    background: var(--primary-cyan);
+                    color: #000;
+                    font-weight: 700;
+                    border-color: var(--primary-cyan);
+                    box-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
+                }
+            </style>
             <div class="input-group">
-                <label class="input-label">Age Range</label>
-                <input type="number" id="cand-age" placeholder="24" min="18">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <label class="input-label" style="margin-bottom: 0;">Age Range</label>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">Select or type your age</span>
+                </div>
+                <div style="position: relative;">
+                    <input type="number" id="cand-age" value="24" placeholder="24" min="18" max="99" style="padding-right: 55px;" oninput="onAgeInputChange(this.value)">
+                    <div class="custom-spinner">
+                        <button type="button" onpointerdown="event.preventDefault(); stepAge(1);" title="Increase Age">▲</button>
+                        <button type="button" onpointerdown="event.preventDefault(); stepAge(-1);" title="Decrease Age">▼</button>
+                    </div>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;" id="quick-age-container">
+                    <button type="button" class="age-pill" data-age="20" onpointerdown="event.preventDefault(); setQuickAge(20);">20</button>
+                    <button type="button" class="age-pill" data-age="21" onpointerdown="event.preventDefault(); setQuickAge(21);">21</button>
+                    <button type="button" class="age-pill" data-age="22" onpointerdown="event.preventDefault(); setQuickAge(22);">22</button>
+                    <button type="button" class="age-pill" data-age="23" onpointerdown="event.preventDefault(); setQuickAge(23);">23</button>
+                    <button type="button" class="age-pill active" data-age="24" onpointerdown="event.preventDefault(); setQuickAge(24);">24</button>
+                    <button type="button" class="age-pill" data-age="25" onpointerdown="event.preventDefault(); setQuickAge(25);">25</button>
+                    <button type="button" class="age-pill" data-age="26" onpointerdown="event.preventDefault(); setQuickAge(26);">26</button>
+                    <button type="button" class="age-pill" data-age="27" onpointerdown="event.preventDefault(); setQuickAge(27);">27</button>
+                    <button type="button" class="age-pill" data-age="28" onpointerdown="event.preventDefault(); setQuickAge(28);">28</button>
+                    <button type="button" class="age-pill" data-age="30" onpointerdown="event.preventDefault(); setQuickAge(30);">30+</button>
+                </div>
             </div>
             <div class="input-group">
                 <label class="input-label">Expertise Level</label>
@@ -181,13 +285,13 @@
 
             <button class="btn btn-primary" onclick="goToPhase2()">Initialize Matrix ➡</button>
         </div>
-        <footer class="page-footer">
+        <footer class="page-footer" style="margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
             &copy; 2026 Simarpreet Singh. Designed & Built with passion.
         </footer>
     </div>
 
     <!-- Phase 2: Resume -->
-    <div id="phase2" class="container" style="max-width: 600px; margin: 0 auto; display: none;">
+    <div id="phase2" class="container" style="max-width: 620px; margin: 0 auto; display: none;">
         <div class="card">
             <div class="subtitle">STEP 2 / 3</div>
             <h2 class="outfit">Dossier Intelligence</h2>
@@ -196,30 +300,31 @@
             <div class="input-group" style="text-align:center;" id="upload-section">
                 <input type="file" id="resume-file" accept=".pdf,.txt" style="display:none;" onchange="handleResumeUpload()">
                 <button class="btn-outline" style="width:100%; padding:2.5rem; border-style:dashed; border-width: 2px; border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.02);" onclick="document.getElementById('resume-file').click()">
-                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📄</div>
+                    <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">📄</div>
                     <span id="file-label" style="color: var(--primary-cyan); font-weight: 600;">Click to upload PDF Resume</span>
                 </button>
             </div>
             
-            <div id="parsed-info" class="candidate-info-card" style="display:none;">
-                <h4 style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 1px;">Extracted Intelligence</h4>
-                <p>Identity: <span id="info-name">...</span></p>
-                <p>Location: <span id="info-loc">...</span></p>
-                <p>Qualifications: <span id="info-qual">...</span></p>
-                <p>Age Range: <span id="info-age">...</span></p>
-                <p>Expertise Level: <span id="info-exp">...</span></p>
-                <div style="margin-top: 1rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Neural Tags</div>
-                    <div id="info-skills" style="display: flex; flex-wrap: wrap; gap: 4px;">...</div>
+            <div id="parsed-info" class="candidate-info-card" style="display:none; margin-top: 2rem; margin-bottom: 2rem; padding: 2rem; border-radius: 20px; background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                <h4 style="font-size: 0.85rem; color: var(--primary-cyan); text-transform: uppercase; margin-bottom: 1.25rem; letter-spacing: 1.5px; font-weight: 800;">Extracted Intelligence</h4>
+                <p style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">Identity: <span id="info-name">...</span></p>
+                <p style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">Location: <span id="info-loc">...</span></p>
+                <p style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">Qualifications: <span id="info-qual">...</span></p>
+                <p style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">Age Range: <span id="info-age">...</span></p>
+                <p style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">Expertise Level: <span id="info-exp">...</span></p>
+                <div style="margin-top: 1.5rem;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: 700; letter-spacing: 1px;">Neural Tags</div>
+                    <div id="info-skills" style="display: flex; flex-wrap: wrap; gap: 6px;">...</div>
                 </div>
             </div>
             
-            <div id="sim-ready-msg" style="display:none; margin-top: 1.5rem;">
-                <p style="color:var(--text-muted); font-size:0.85rem; line-height: 1.5;">Environment ready. The engine has synthesized a custom question bank based on your skills.</p>
-                <button class="btn btn-primary" id="btn-start-sim" onclick="startSimulation()">Start Simulation Session</button>
+            <div id="sim-ready-msg" style="display:none; margin-top: 2rem; margin-bottom: 2.5rem; padding: 1.5rem; background: rgba(34, 197, 94, 0.05); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 16px;">
+                <p style="color: #22c55e; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.5rem;">✓ Environment Synchronized</p>
+                <p style="color:var(--text-muted); font-size:0.85rem; line-height: 1.5; margin-bottom: 1.25rem;">The AI engine has synthesized customized technical and scenario questions based on your verified skills.</p>
+                <button class="btn btn-primary" id="btn-start-sim" onclick="startSimulation()">Start Simulation Session 🚀</button>
             </div>
         </div>
-        <footer class="page-footer">
+        <footer class="page-footer" style="margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
             &copy; 2026 Simarpreet Singh. Designed & Built with passion.
         </footer>
     </div>
@@ -371,20 +476,45 @@
         </div>
     </div>
 
-    <!-- Phase 4: Finish -->
-    <div id="phase4" class="container" style="max-width: 500px; margin: 0 auto; display: none;">
-        <div class="card" style="border-top: 4px solid var(--primary-cyan);">
-            <div style="font-size: 3rem; margin-bottom: 1.5rem;">🏁</div>
-            <h2 class="outfit">Simulation Complete</h2>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 1.5rem 0; line-height: 1.6;">
-                The AI engine is now synthesizing your performance score, sentiment analysis, and integrity report. 
-            </p>
-            <div style="background: rgba(0,229,255,0.05); padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(0,229,255,0.1); margin-bottom: 2rem;">
-                <p style="color: #fff; font-size: 0.9rem; font-weight: 600;">Detailed analytics will be available in your dashboard shortly.</p>
+    <!-- Phase 4: Finish (Smooth Waiting Result Synthesis) -->
+    <div id="phase4" class="container" style="max-width: 580px; margin: 0 auto; display: none;">
+        <div class="card" style="border-top: 4px solid var(--primary-cyan); padding: 3rem 2rem; position: relative; overflow: hidden; animation: fadeInScale 0.6s cubic-bezier(0.4, 0, 0.2, 1);">
+            <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+                <div style="position: relative; width: 70px; height: 70px;">
+                    <div style="position: absolute; inset: 0; border: 4px solid rgba(0, 229, 255, 0.15); border-top-color: var(--primary-cyan); border-radius: 50%; animation: spin 1.2s linear infinite;"></div>
+                    <div style="position: absolute; inset: 10px; border: 3px solid rgba(34, 197, 94, 0.15); border-bottom-color: #22c55e; border-radius: 50%; animation: spin-reverse 1.8s linear infinite;"></div>
+                    <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">⚡</div>
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="window.location.href='/index.html?show_results=1'">📊 View Result & Analytics</button>
+
+            <h2 class="outfit" style="margin-bottom: 0.5rem; font-size: 1.6rem; color: #fff;">Synthesizing Interview Dossier</h2>
+            <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 2rem; line-height: 1.6;">
+                Your responses, behavioral focus, and technical metrics are being evaluated by the neural assessment engine.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 2rem; text-align: left;">
+                <div class="synth-step" id="synth-step-1" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; transition: all 0.4s ease;">
+                    <span id="step-icon-1" style="font-size: 1rem; color: var(--primary-cyan);">⏳</span>
+                    <span style="font-size: 0.85rem; color: #cbd5e1;">Compiling speech audio transcripts</span>
+                </div>
+                <div class="synth-step" id="synth-step-2" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; transition: all 0.4s ease;">
+                    <span id="step-icon-2" style="font-size: 1rem; color: var(--text-muted);">⏳</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Calibrating facial emotion & integrity metrics</span>
+                </div>
+                <div class="synth-step" id="synth-step-3" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; transition: all 0.4s ease;">
+                    <span id="step-icon-3" style="font-size: 1rem; color: var(--text-muted);">⏳</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Generating final cognitive performance score</span>
+                </div>
+            </div>
+
+            <div id="finish-ready-box" style="display: none; animation: fadeInScale 0.5s ease;">
+                <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <p style="color: #22c55e; font-size: 0.9rem; font-weight: 700; margin: 0;">Evaluation Complete ✓ Ready for Review</p>
+                </div>
+                <button class="btn btn-primary pulse-btn" onclick="window.location.href='/index.html?show_results=1'" style="width: 100%;">📊 View Result & Performance Dossier</button>
+            </div>
         </div>
-        <footer class="page-footer">
+        <footer class="page-footer" style="margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
             &copy; 2026 Simarpreet Singh. Designed & Built with passion.
         </footer>
     </div>
@@ -635,6 +765,41 @@
             }
         }
 
+        let userModifiedAge = false;
+
+        function stepAge(delta) {
+            userModifiedAge = true;
+            const input = document.getElementById('cand-age');
+            if (!input) return;
+            let current = parseInt(input.value) || 24;
+            let next = Math.max(18, Math.min(99, current + delta));
+            input.value = next;
+            highlightQuickAge(next);
+        }
+
+        function setQuickAge(val) {
+            userModifiedAge = true;
+            const input = document.getElementById('cand-age');
+            if (!input) return;
+            input.value = val;
+            highlightQuickAge(val);
+        }
+
+        function onAgeInputChange(val) {
+            userModifiedAge = true;
+            highlightQuickAge(parseInt(val));
+        }
+
+        function highlightQuickAge(val) {
+            document.querySelectorAll('#quick-age-container .age-pill').forEach(btn => {
+                if (parseInt(btn.getAttribute('data-age')) === parseInt(val)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
         window.onload = () => {
             const token = localStorage.getItem('access_token');
             const user = localStorage.getItem('username');
@@ -646,9 +811,6 @@
 
             // Ping Render backend in background to wake it up early
             pingBackend();
-            
-            // Start background calibration of FaceAPI models immediately
-            loadFaceAPIModels();
             
             // Check candidate status and interview presence asynchronously (non-blocking)
             fetchWithRetry(getApiUrl('/api/get_result'), {
@@ -666,18 +828,13 @@
                           return;
                       }
                       
-                      if (data.age) {
+                      // Pre-fill age only if user hasn't already adjusted it
+                      if (data.age && !userModifiedAge) {
                           document.getElementById('cand-age').value = data.age;
+                          highlightQuickAge(data.age);
                       }
                       if (data.experience) {
                           document.getElementById('cand-exp').value = data.experience;
-                      }
-                      
-                      // If age and experience were pre-filled, skip Phase 1
-                      if (data.age) {
-                          document.getElementById('phase1').style.display = 'none';
-                          document.getElementById('phase2').style.display = 'block';
-                          document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
                       }
                   }
               })
@@ -686,45 +843,32 @@
               });
         };
 
-        async function goToPhase2() {
-            const age = document.getElementById('cand-age').value;
+        function goToPhase2() {
+            const ageInput = document.getElementById('cand-age');
+            const age = (ageInput && ageInput.value) ? ageInput.value.trim() : '24';
             const exp = document.getElementById('cand-exp').value;
-            if(!age) { showToast("⚠️ Age is required for calibration."); return; }
             
-            // Show a temporary loading state on the button
-            const btn = document.querySelector('#phase1 .btn-primary');
-            const originalText = btn ? btn.innerText : "Initialize Matrix ➡";
-            if (btn) {
-                btn.innerText = "Saving Profile...";
-                btn.disabled = true;
-            }
+            // Switch UI immediately with ZERO delay
+            document.getElementById('phase1').style.display = 'none';
+            document.getElementById('phase2').style.display = 'block';
+            document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
             
-            try {
-                const token = localStorage.getItem('access_token');
-                const response = await fetch(getApiUrl('/api/update_profile'), {
+            // Now load FaceAPI models smoothly in the background while candidate uploads resume
+            setTimeout(() => {
+                loadFaceAPIModels();
+            }, 50);
+            
+            // Update profile asynchronously in background
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                fetch(getApiUrl('/api/update_profile'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ age: parseInt(age), experience: exp })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    document.getElementById('phase1').style.display = 'none';
-                    document.getElementById('phase2').style.display = 'block';
-                    document.getElementById('top-stage').innerText = "PHASE 2: DOSSIER";
-                } else {
-                    showToast("⚠️ Update Failed: " + (data.message || "Unknown error"));
-                }
-            } catch (err) {
-                console.error("Error updating profile:", err);
-                showToast("⚠️ Connection error saving profile.");
-            } finally {
-                if (btn) {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }
+                    body: JSON.stringify({ age: parseInt(age) || 24, experience: exp })
+                }).catch(err => console.warn("Background profile save note:", err));
             }
         }
 
@@ -753,7 +897,9 @@
                 if(data.success) {
                     const info = data.candidate_info || {};
                     document.getElementById('file-label').innerText = `Success: ${file.name}`;
-                    document.getElementById('parsed-info').style.display = 'block';
+                    const parsedEl = document.getElementById('parsed-info');
+                    parsedEl.style.display = 'block';
+                    parsedEl.style.animation = 'fadeInScale 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
                     document.getElementById('info-name').innerText = info.name || 'N/A';
                     document.getElementById('info-loc').innerText = info.location || 'N/A';
                     document.getElementById('info-qual').innerText = info.qualifications || 'N/A';
@@ -781,7 +927,9 @@
                         skillBox.innerHTML = '<span style="color:var(--text-muted); font-size:0.8rem;">None detected</span>';
                     }
                     
-                    document.getElementById('sim-ready-msg').style.display = 'block';
+                    const readyEl = document.getElementById('sim-ready-msg');
+                    readyEl.style.display = 'block';
+                    readyEl.style.animation = 'fadeInScale 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
                     questions = data.questions || [];
                 } else {
                     document.getElementById('file-label').innerText = "Click to upload PDF Resume";
@@ -1705,13 +1853,8 @@
 
             // Stop fullSessionRecorder and upload whatever was recorded
             if(fullSessionRecorder && fullSessionRecorder.state !== 'inactive') {
-                try {
-                    fullSessionRecorder.stop();
-                } catch(e) {}
-                
-                // Wait for ondataavailable to trigger and compile the chunks
                 await new Promise(resolve => {
-                    setTimeout(async () => {
+                    fullSessionRecorder.onstop = async () => {
                         try {
                             const blob = new Blob(videoChunks, { type: 'video/webm' });
                             const formData = new FormData();
@@ -1727,7 +1870,10 @@
                             console.error("Failed to upload video during termination:", err);
                         }
                         resolve();
-                    }, 1000);
+                    };
+                    try {
+                        fullSessionRecorder.stop();
+                    } catch(e) { resolve(); }
                 });
             }
             
@@ -1759,20 +1905,28 @@
             }
 
             if(fullSessionRecorder && fullSessionRecorder.state !== 'inactive') {
-                fullSessionRecorder.stop();
-                
-                // Wait for video chunks to collect
-                setTimeout(async () => {
-                    const blob = new Blob(videoChunks, { type: 'video/webm' });
-                    const formData = new FormData();
-                    formData.append('video', blob);
-                    formData.append('username', localStorage.getItem('username'));
-                    
-                    await fetch(getApiUrl('/api/upload_full_video'), {
-                        method: 'POST',
-                        body: formData
-                    });
-                }, 1000);
+                // Wait for video chunks to collect and upload before finishing
+                await new Promise(resolve => {
+                    fullSessionRecorder.onstop = async () => {
+                        try {
+                            const blob = new Blob(videoChunks, { type: 'video/webm' });
+                            const formData = new FormData();
+                            formData.append('video', blob);
+                            formData.append('username', localStorage.getItem('username'));
+                            
+                            await fetch(getApiUrl('/api/upload_full_video'), {
+                                method: 'POST',
+                                body: formData
+                            });
+                        } catch (err) {
+                            console.error("Failed to upload video:", err);
+                        }
+                        resolve();
+                    };
+                    try {
+                        fullSessionRecorder.stop();
+                    } catch(e) { resolve(); }
+                });
             }
             
             if (pendingAnalysisCount > 0) {
@@ -1824,15 +1978,75 @@
             }
         }
 
+        function runSynthesisSteps() {
+            setTimeout(() => {
+                const s1 = document.getElementById('step-icon-1');
+                const row1 = document.getElementById('synth-step-1');
+                if (s1 && row1) {
+                    s1.innerText = "✓";
+                    s1.style.color = "#22c55e";
+                    s1.style.fontWeight = "800";
+                    row1.style.borderColor = "rgba(34, 197, 94, 0.3)";
+                    row1.style.background = "rgba(34, 197, 94, 0.04)";
+                }
+                const s2 = document.getElementById('step-icon-2');
+                const row2 = document.getElementById('synth-step-2');
+                if (s2 && row2) {
+                    s2.style.color = "var(--primary-cyan)";
+                    row2.children[1].style.color = "#fff";
+                }
+            }, 800);
+
+            setTimeout(() => {
+                const s2 = document.getElementById('step-icon-2');
+                const row2 = document.getElementById('synth-step-2');
+                if (s2 && row2) {
+                    s2.innerText = "✓";
+                    s2.style.color = "#22c55e";
+                    s2.style.fontWeight = "800";
+                    row2.style.borderColor = "rgba(34, 197, 94, 0.3)";
+                    row2.style.background = "rgba(34, 197, 94, 0.04)";
+                }
+                const s3 = document.getElementById('step-icon-3');
+                const row3 = document.getElementById('synth-step-3');
+                if (s3 && row3) {
+                    s3.style.color = "var(--primary-cyan)";
+                    row3.children[1].style.color = "#fff";
+                }
+            }, 1800);
+
+            setTimeout(() => {
+                const s3 = document.getElementById('step-icon-3');
+                const row3 = document.getElementById('synth-step-3');
+                if (s3 && row3) {
+                    s3.innerText = "✓";
+                    s3.style.color = "#22c55e";
+                    s3.style.fontWeight = "800";
+                    row3.style.borderColor = "rgba(34, 197, 94, 0.3)";
+                    row3.style.background = "rgba(34, 197, 94, 0.04)";
+                }
+                const readyBox = document.getElementById('finish-ready-box');
+                if (readyBox) {
+                    readyBox.style.display = 'block';
+                }
+            }, 2800);
+        }
+
         function checkAndShowFinish() {
             if (isFinished && pendingAnalysisCount === 0) {
                 const syncOverlay = document.getElementById('sync-overlay');
                 if (syncOverlay) {
                     syncOverlay.style.display = 'none';
                 }
-                document.getElementById('phase3').style.display = 'none';
-                document.getElementById('phase4').style.display = 'block';
-                document.getElementById('top-stage').innerText = "SESSION COMPLETE";
+                const p3 = document.getElementById('phase3');
+                if (p3) p3.style.display = 'none';
+
+                const p4 = document.getElementById('phase4');
+                if (p4) {
+                    p4.style.display = 'block';
+                    document.getElementById('top-stage').innerText = "SESSION COMPLETE";
+                    runSynthesisSteps();
+                }
             }
         }
     </script>

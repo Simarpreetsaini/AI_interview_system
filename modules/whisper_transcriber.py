@@ -30,9 +30,10 @@ def transcribe_audio(path):
                 "file": (filename, f, "audio/webm")
             }
             data = {
-                "model": "whisper-large-v3-turbo",
+                "model": "whisper-large-v3",
                 "temperature": "0.0",
-                "response_format": "json"
+                "response_format": "json",
+                "language": "en"
             }
             response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
             

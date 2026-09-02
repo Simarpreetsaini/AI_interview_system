@@ -153,6 +153,7 @@
                     </select>
                     <input type="text" id="table-search" placeholder="Search..." onkeyup="filterTable()" style="width: 200px; padding: 0.5rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
                     <button onclick="exportToCSV()" class="btn-outline">Export CSV</button>
+                    <button onclick="downloadPDFReport()" class="btn-outline" style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--primary-cyan);" onmouseover="this.style.background='rgba(0, 229, 255, 0.2)';" onmouseout="this.style.background='rgba(0, 229, 255, 0.1)';">Download PDF Report 📄</button>
                     <button onclick="deleteAllRecords()" class="btn-outline" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)';">Delete All Records 🗑️</button>
                 </div>
             </div>
@@ -211,6 +212,7 @@
                             window.location.hostname.startsWith('192.168.') || 
                             window.location.hostname.startsWith('10.') || 
                             window.location.hostname.startsWith('172.') || 
+                            window.location.port === '8005' || 
                             window.location.port === '8000';
             const base = isLocal ? '' : RENDER_BASE;
             return base + path;
@@ -673,6 +675,33 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+        }
+
+        async function downloadPDFReport() {
+            const token = localStorage.getItem('access_token');
+            showToast("Generating PDF Report...");
+            try {
+                const res = await fetch(getApiUrl('/api/download_pdf_report'), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `AI_Interview_System_Project_Report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showToast("PDF Report downloaded successfully!");
+                } else {
+                    const data = await res.json();
+                    showToast("⚠️ PDF Generation failed: " + (data.detail || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Error downloading PDF:", err);
+                showToast("⚠️ Connection error downloading PDF");
+            }
         }
 
         async function deleteAllRecords() {

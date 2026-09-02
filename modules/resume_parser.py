@@ -25,7 +25,7 @@ SKILLS_DB = [
 def extract_text_from_pdf(file):
     text = ""
     with pdfplumber.open(file) as pdf:
-        for page in pdf.pages:
+        for page in pdf.pages[:3]:
             page_text = page.extract_text()
             if page_text:
                 text += page_text + "\n"

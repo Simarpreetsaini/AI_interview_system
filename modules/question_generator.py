@@ -1,5 +1,9 @@
 
 import random
+import os
+import json
+import urllib.request
+import urllib.error
 
 BANK = {
     "python": [
@@ -446,7 +450,7 @@ def classify_domain_and_source(skills):
         
     return "Computer Science", "Top 150 Interview Questions"
 
-def generate_questions(skills, experience_level="fresher", domain=None, source=None, username=None, db=None):
+def generate_questions_static(skills, experience_level="fresher", domain=None, source=None, username=None, db=None):
     # Automatically classify domain and source if not explicitly provided
     if not domain or not source:
         detected_domain, detected_source = classify_domain_and_source(skills)
@@ -468,87 +472,146 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
         except Exception as e:
             print(f"Error loading previously asked questions: {e}")
 
-    # Determine counts based on experience
-    if experience_level.lower() == "experienced":
-        total_count = random.randint(6, 7) # 6-7 questions
-        tech_ratio = 0.7 # 70% technical
-    else:
-        total_count = random.randint(4, 5) # 4-5 questions
-        tech_ratio = 0.6 # 60% technical
+    # Always select 5 or 6 questions randomly every time
+    total_count = random.choice([5, 6])
+    # Always include 1 or 2 hard skills questions
+    hard_count = random.choice([1, 2])
+    tech_count = total_count - hard_count
 
-    tech_count = int(total_count * tech_ratio)
-    hard_count = total_count - tech_count
-
-    # 1. Distribute technical questions across skills evenly
-    normalized_skills = [s.lower().strip() for s in skills]
+    # 1. Distribute technical questions across detected skills evenly
+    normalized_skills = [s.lower().strip() for s in skills] if skills else ["python"]
     
-    skill_to_bank_key = {}
-    for skill_name in normalized_skills:
-        for key in BANK:
-            if key != "hard_skills":
-                if key == skill_name or key in skill_name or skill_name in key:
-                    skill_to_bank_key[skill_name] = key
-                    break
+    # Comprehensive skill to BANK key mapping
+    SKILL_KEY_MAP = {
+        "python": "python",
+        "c": "c",
+        "c++": "c++",
+        "cpp": "c++",
+        "java": "java",
+        "javascript": "javascript",
+        "js": "javascript",
+        "typescript": "javascript",
+        "react": "react.js",
+        "react.js": "react.js",
+        "reactjs": "react.js",
+        "next": "next.js",
+        "next.js": "next.js",
+        "nextjs": "next.js",
+        "node": "node.js",
+        "node.js": "node.js",
+        "nodejs": "node.js",
+        "express": "express.js",
+        "express.js": "express.js",
+        "sql": "sql",
+        "mysql": "sql",
+        "postgresql": "sql",
+        "postgres": "sql",
+        "sqlite": "sql",
+        "mongodb": "mongodb",
+        "mongo": "mongodb",
+        "cloud": "cloud",
+        "aws": "cloud",
+        "gcp": "cloud",
+        "azure": "cloud",
+        "devops": "devops",
+        "docker": "devops",
+        "kubernetes": "devops",
+        "k8s": "devops",
+        "git": "devops",
+        "machine learning": "machine learning",
+        "ml": "machine learning",
+        "data science": "data science",
+        "pandas": "data science",
+        "numpy": "data science",
+        "deep learning": "deep learning",
+        "tensorflow": "deep learning",
+        "keras": "deep learning",
+        "cybersecurity": "cybersecurity",
+        "security": "cybersecurity",
+        "mobile": "mobile",
+        "android": "mobile",
+        "flutter": "mobile",
+        "ios": "mobile",
+        "swift": "mobile"
+    }
 
+    matched_bank_keys = []
+    for s in normalized_skills:
+        if s in SKILL_KEY_MAP:
+            matched_bank_keys.append(SKILL_KEY_MAP[s])
+        else:
+            for k in BANK:
+                if k != "hard_skills" and (k == s or k in s or s in k):
+                    matched_bank_keys.append(k)
+                    break
+    
+    matched_bank_keys = list(dict.fromkeys(matched_bank_keys))
+    if not matched_bank_keys:
+        matched_bank_keys = ["python"]
+
+    # Build per-skill question pools excluding previously asked
     skill_pools = {}
-    for skill_name, key in skill_to_bank_key.items():
-        pool = [q for q in BANK[key] if q.strip().lower() not in previously_asked]
-        random.shuffle(pool)
-        skill_pools[skill_name] = pool
+    for key in matched_bank_keys:
+        if key in BANK:
+            pool = [q for q in BANK[key] if q.strip().lower() not in previously_asked]
+            random.shuffle(pool)
+            skill_pools[key] = pool
 
     final_tech = []
-    # Round-robin selection across skills
-    skills_list = list(skill_pools.keys())
-    if skills_list:
-        skill_index = 0
+    keys_list = list(skill_pools.keys())
+    random.shuffle(keys_list)
+    
+    if keys_list:
+        k_idx = 0
         attempts = 0
-        max_attempts = tech_count * 5
+        max_attempts = tech_count * 10
         while len(final_tech) < tech_count and attempts < max_attempts:
-            current_skill = skills_list[skill_index % len(skills_list)]
-            pool = skill_pools[current_skill]
+            current_key = keys_list[k_idx % len(keys_list)]
+            pool = skill_pools[current_key]
             if pool:
-                final_tech.append(pool.pop(0))
-            skill_index += 1
+                chosen = pool.pop(0)
+                if chosen not in final_tech:
+                    final_tech.append(chosen)
+            k_idx += 1
             attempts += 1
             if not any(skill_pools.values()):
                 break
 
-    # If more technical questions are needed, pick from generic source / BANK questions (excluding previously asked)
+    # If more technical questions are needed, draw from other BANK categories
     if len(final_tech) < tech_count:
-        general_tech_pool = []
+        general_pool = []
+        for key, q_list in BANK.items():
+            if key != "hard_skills":
+                general_pool.extend(q_list)
         if source and source in SOURCE_QUESTIONS:
-            general_tech_pool.extend(SOURCE_QUESTIONS[source])
-        for key, q_list in BANK.items():
-            if key != "hard_skills":
-                general_tech_pool.extend(q_list)
+            general_pool.extend(SOURCE_QUESTIONS[source])
         
-        general_tech_pool = [q for q in set(general_tech_pool) if q.strip().lower() not in previously_asked]
-        random.shuffle(general_tech_pool)
-        for q in general_tech_pool:
-            if q not in final_tech:
-                final_tech.append(q)
-                if len(final_tech) == tech_count:
-                    break
+        unused_general = [q for q in set(general_pool) if q.strip().lower() not in previously_asked and q not in final_tech]
+        random.shuffle(unused_general)
+        for q in unused_general:
+            final_tech.append(q)
+            if len(final_tech) == tech_count:
+                break
 
-    # If STILL not enough technical questions (ran out of unused questions), fallback to allowing previously asked questions
+    # Fallback if candidate has answered literally all questions in pool
     if len(final_tech) < tech_count:
-        fallback_pool = []
-        for key, q_list in BANK.items():
-            if key != "hard_skills":
-                fallback_pool.extend(q_list)
-        random.shuffle(fallback_pool)
-        for q in fallback_pool:
+        all_tech = []
+        for key in matched_bank_keys:
+            if key in BANK:
+                all_tech.extend(BANK[key])
+        random.shuffle(all_tech)
+        for q in all_tech:
             if q not in final_tech:
                 final_tech.append(q)
                 if len(final_tech) == tech_count:
                     break
 
-    # 2. Gather behavioral/hard skills questions
+    # 2. Gather 1 or 2 hard skills questions
     hard_skills_pool = [q for q in BANK.get("hard_skills", []) if q.strip().lower() not in previously_asked]
     random.shuffle(hard_skills_pool)
     final_hard = hard_skills_pool[:hard_count]
 
-    # Fallback for hard skills if pool runs dry
+    # Fallback for hard skills if previously asked exhausted the pool
     if len(final_hard) < hard_count:
         all_hard = list(BANK.get("hard_skills", GENERAL_QUESTIONS))
         random.shuffle(all_hard)
@@ -563,5 +626,14 @@ def generate_questions(skills, experience_level="fresher", domain=None, source=N
     random.shuffle(final_questions)
     
     return final_questions[:total_count]
+
+def generate_questions(skills, experience_level="fresher", domain=None, source=None, username=None, db=None):
+    """
+    Rapid question generation directly from question bank.
+    Ensures 5-6 questions, randomly matched to candidate skills, with 1-2 hard skills,
+    and strictly avoiding questions previously asked to the candidate.
+    """
+    return generate_questions_static(skills, experience_level, domain, source, username, db)
+
 
 

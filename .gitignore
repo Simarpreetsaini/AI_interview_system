@@ -4,9 +4,13 @@ __pycache__/
 *$py.class
 venv/
 .venv/
-venv_old/
 env/
 .env
+
+# Node & Frontend builds
+node_modules/
+dist/
+.vercel
 
 # Databases
 *.db
@@ -22,7 +26,7 @@ env/
 # Local binaries
 ffmpeg-*/
 
-# Data & Sessions
+# Data, Sessions & Dev Scratch
 data/
 scratch/
 
@@ -33,4 +37,3 @@ scratch/
 # User uploads & static media
 static/resumes/
 static/videos/
-.vercel

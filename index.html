@@ -132,6 +132,50 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .tab-content-anim {
+            animation: tabFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes tabFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .forgot-pwd-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 18px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.3px;
+        }
+        .forgot-pwd-btn:hover {
+            color: #fff;
+            background: rgba(0, 229, 255, 0.08);
+            border-color: rgba(0, 229, 255, 0.4);
+            box-shadow: 0 0 16px rgba(0, 229, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        .forgot-pwd-btn:active {
+            transform: translateY(0);
+        }
+        .forgot-pwd-btn .forgot-icon {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+        }
+        .forgot-pwd-btn:hover .forgot-icon {
+            transform: rotate(-15deg) scale(1.15);
+        }
     </style>
 </head>
 <body>
@@ -209,8 +253,11 @@
                                 <input type="password" id="login-password" placeholder="••••••••">
                             </div>
                             <button class="btn btn-primary" onclick="login()">Access Portal 🔒</button>
-                            <div style="text-align: center; margin-top: 1rem;">
-                                <a href="javascript:void(0)" onclick="switchTab('forgot')" style="color: var(--text-muted); font-size: 0.8rem;">Forgot Password?</a>
+                            <div style="text-align: center; margin-top: 1.25rem;">
+                                <button type="button" class="forgot-pwd-btn" onclick="switchTab('forgot')">
+                                    <span class="forgot-icon">🔑</span>
+                                    <span>Forgot Password?</span>
+                                </button>
                             </div>
                         </div>
 
@@ -224,11 +271,24 @@
                         <div id="register-form" style="display: none;">
                             <div class="input-group">
                                 <label class="input-label">Username</label>
-                                <input type="text" id="reg-username" placeholder="Choose a name">
+                                <input type="text" id="reg-username" placeholder="Choose any username">
                             </div>
                             <div class="input-group">
                                 <label class="input-label">Password</label>
-                                <input type="password" id="reg-password" placeholder="••••••••">
+                                <input type="password" id="reg-password" placeholder="••••••••" oninput="testPasswordStrength(this.value)">
+                                <div id="password-strength-box" style="margin-top: 8px; display: none;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                        <span style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Password Strength</span>
+                                        <span id="strength-label" style="font-size: 0.72rem; font-weight: 700; color: #ef4444;">Too Weak</span>
+                                    </div>
+                                    <div style="display: flex; gap: 4px; height: 5px; width: 100%; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.05);">
+                                        <div id="str-1" style="flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); transition: all 0.3s ease;"></div>
+                                        <div id="str-2" style="flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); transition: all 0.3s ease;"></div>
+                                        <div id="str-3" style="flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); transition: all 0.3s ease;"></div>
+                                        <div id="str-4" style="flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); transition: all 0.3s ease;"></div>
+                                        <div id="str-5" style="flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); transition: all 0.3s ease;"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="input-group">
                                 <label class="input-label">Confirm Password</label>
@@ -296,8 +356,10 @@
                                 </div>
                                 <button class="btn btn-primary" onclick="submitReset()">Update Password</button>
                             </div>
-                            <div style="text-align: center; margin-top: 1rem;">
-                                <a href="javascript:void(0)" onclick="switchTab('login')" style="color: var(--text-muted); font-size: 0.8rem;">Back to Login</a>
+                            <div style="text-align: center; margin-top: 1.5rem;">
+                                <button type="button" class="forgot-pwd-btn" onclick="switchTab('login')">
+                                    <span>← Back to Login</span>
+                                </button>
                             </div>
                         </div>
 
@@ -402,14 +464,20 @@
             document.getElementById('tab-login').classList.remove('active');
             document.getElementById('tab-register').classList.remove('active');
             document.getElementById('tab-results').classList.remove('active');
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('register-form').style.display = 'none';
-            document.getElementById('results-view').style.display = 'none';
-            document.getElementById('forgot-form').style.display = 'none';
-            document.getElementById('post-login-options').style.display = 'none';
+            
+            const forms = ['login-form', 'register-form', 'results-view', 'forgot-form', 'post-login-options'];
+            forms.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = 'none';
+                    el.classList.remove('tab-content-anim');
+                }
+            });
             document.getElementById('msg').innerText = '';
 
-            const grid = document.querySelector('.portal-grid');
+            // Keep container and page background completely steady
+            const container = document.querySelector('.container');
+            if (container) container.style.maxWidth = '520px';
 
             if (tab === 'results') {
                 if (!localStorage.getItem('access_token')) {
@@ -417,31 +485,34 @@
                     switchTab('login');
                     return;
                 }
-                if (grid) grid.classList.add('results-active');
                 document.getElementById('tab-results').classList.add('active');
-                document.getElementById('results-view').style.display = 'block';
-                document.querySelector('.container').style.maxWidth = '800px';
+                const resultsEl = document.getElementById('results-view');
+                resultsEl.style.display = 'block';
+                resultsEl.classList.add('tab-content-anim');
                 checkResult();
-            } else {
-                if (grid) grid.classList.remove('results-active');
-                document.querySelector('.container').style.maxWidth = '480px';
-                
-                if (tab === 'login') {
-                    document.getElementById('tab-login').classList.add('active');
-                    if (localStorage.getItem('access_token')) {
-                        document.getElementById('post-login-options').style.display = 'block';
-                        updatePostLoginUI();
-                    } else {
-                        document.getElementById('login-form').style.display = 'block';
-                    }
-                } else if (tab === 'forgot') {
-                    document.getElementById('forgot-form').style.display = 'block';
-                    document.getElementById('forgot-step1').style.display = 'block';
-                    document.getElementById('forgot-step2').style.display = 'none';
+            } else if (tab === 'login') {
+                document.getElementById('tab-login').classList.add('active');
+                if (localStorage.getItem('access_token')) {
+                    const postLogin = document.getElementById('post-login-options');
+                    postLogin.style.display = 'block';
+                    postLogin.classList.add('tab-content-anim');
+                    updatePostLoginUI();
                 } else {
-                    document.getElementById('tab-register').classList.add('active');
-                    document.getElementById('register-form').style.display = 'block';
+                    const loginEl = document.getElementById('login-form');
+                    loginEl.style.display = 'block';
+                    loginEl.classList.add('tab-content-anim');
                 }
+            } else if (tab === 'forgot') {
+                const forgotEl = document.getElementById('forgot-form');
+                forgotEl.style.display = 'block';
+                forgotEl.classList.add('tab-content-anim');
+                document.getElementById('forgot-step1').style.display = 'block';
+                document.getElementById('forgot-step2').style.display = 'none';
+            } else {
+                document.getElementById('tab-register').classList.add('active');
+                const regEl = document.getElementById('register-form');
+                regEl.style.display = 'block';
+                regEl.classList.add('tab-content-anim');
             }
         }
 
@@ -555,6 +626,49 @@
                 }
             } else {
                 showMessage(data.message, "#ef4444");
+            }
+        }
+
+        function testPasswordStrength(pwd) {
+            const box = document.getElementById('password-strength-box');
+            if (!pwd || pwd.length === 0) {
+                box.style.display = 'none';
+                return;
+            }
+            box.style.display = 'block';
+
+            let score = 0;
+            if (pwd.length >= 4) score++;
+            if (pwd.length >= 8) score++;
+            if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+            if (/[0-9]/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+            // Ensure score is 1-5
+            score = Math.max(1, Math.min(5, score));
+
+            const levels = [
+                { text: "Too Weak", color: "#ef4444" },
+                { text: "Weak", color: "#f97316" },
+                { text: "Normal", color: "#eab308" },
+                { text: "Strong", color: "#22c55e" },
+                { text: "Very Strong", color: "#00E5FF" }
+            ];
+
+            const current = levels[score - 1];
+            const label = document.getElementById('strength-label');
+            label.innerText = current.text;
+            label.style.color = current.color;
+
+            for (let i = 1; i <= 5; i++) {
+                const bar = document.getElementById(`str-${i}`);
+                if (i <= score) {
+                    bar.style.background = current.color;
+                    bar.style.boxShadow = `0 0 8px ${current.color}aa`;
+                } else {
+                    bar.style.background = "rgba(255,255,255,0.08)";
+                    bar.style.boxShadow = "none";
+                }
             }
         }
 

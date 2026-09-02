@@ -1,3 +1,5 @@
+import sys
+print("SYS PATH IN MAIN.PY IS:", sys.path)
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -207,6 +209,20 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def favicon():
     return FileResponse("static/images/logo.png")
 
+# Health check endpoints for UptimeRobot, uptime monitors, and Render keep-alive
+@app.get("/health")
+@app.head("/health")
+@app.get("/api/health")
+@app.head("/api/health")
+async def health_check():
+    import time
+    return {
+        "status": "healthy",
+        "service": "AI Interview System",
+        "timestamp": int(time.time()),
+        "uptime": "online"
+    }
+
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
 async def chrome_devtools():
     return {"status": "ok"}
@@ -214,13 +230,9 @@ async def chrome_devtools():
 # Serve HTML files
 NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
 
-@app.get("/")
-async def root():
-    return {"message": "AI Interview System Running"}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
+@app.get("/", response_class=HTMLResponse)
+async def serve_index():
+    return FileResponse("index.html", headers=NO_CACHE_HEADERS)
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def serve_index_alias():
@@ -254,13 +266,20 @@ class RegisterRequest(BaseModel):
 @app.post("/api/register")
 async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     username_clean = req.username.strip()
-    existing_user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
+    if not username_clean:
+        return {"success": False, "message": "Username cannot be empty."}
+    
+    password = req.password
+    if not password:
+        return {"success": False, "message": "Password cannot be empty."}
+
+    existing_user = db.query(User).filter(User.username == username_clean).first()
     if existing_user:
         return {"success": False, "message": "User already exists"}
     
     new_user = User(
         username=username_clean,
-        password=req.password,
+        password=password,
         status="Pending",
         access="grant",
         age=req.age,
@@ -268,17 +287,40 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(new_user)
     db.commit()
+    
+    # Mirror to SQLite if primary is PostgreSQL
+    if engine.dialect.name == "postgresql":
+        sqlite_db = SqliteSessionLocal()
+        try:
+            existing_sqlite = sqlite_db.query(User).filter(User.username == username_clean).first()
+            if not existing_sqlite:
+                new_sqlite_user = User(
+                    username=username_clean,
+                    password=req.password,
+                    status="Pending",
+                    access="grant",
+                    age=req.age,
+                    experience=req.experience
+                )
+                sqlite_db.add(new_sqlite_user)
+                sqlite_db.commit()
+        except Exception as e:
+            sqlite_db.rollback()
+            print(f"Warning: Failed to mirror registration to SQLite: {e}")
+        finally:
+            sqlite_db.close()
+            
     return {"success": True, "message": "Registration successful"}
 
 @app.post("/api/login")
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
     username_clean = req.username.strip()
-    user = db.query(User).filter(func.lower(User.username) == func.lower(username_clean)).first()
+    user = db.query(User).filter(User.username == username_clean).first()
     if not user:
         return {"success": False, "message": "Username is not registered. Please create an account."}
         
     if user.password != req.password:
-        return {"success": False, "message": "Invalid password. Please try again."}
+        return {"success": False, "message": "Incorrect password."}
         
     if user.access == "revoke" and req.username != "admin":
         return {"success": False, "message": "Access revoked by admin"}
@@ -336,8 +378,31 @@ def upload_full_video_bg(local_path: str, object_name: str):
     except Exception as e:
         print(f"Background full video upload error: {e}")
 
+def upload_resume_bg(local_path: str, public_id: str, username: str):
+    try:
+        import cloudinary.uploader
+        cloudinary_resp = cloudinary.uploader.upload(
+            local_path,
+            resource_type="auto",
+            public_id=public_id
+        )
+        if cloudinary_resp and "secure_url" in cloudinary_resp:
+            cloud_url = cloudinary_resp["secure_url"]
+            print(f"INFO: Uploaded resume to Cloudinary: {cloud_url}")
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(func.lower(User.username) == func.lower(username.strip())).first()
+                if user:
+                    user.resume_path = cloud_url
+                    db.commit()
+            finally:
+                db.close()
+    except Exception as e:
+        print(f"Background Cloudinary resume upload error: {e}")
+
 @app.post("/api/upload_resume")
 async def upload_resume(
+    background_tasks: BackgroundTasks,
     resume: UploadFile = File(...),
     experience: str = Form("fresher"),
     domain: str = Form(None),
@@ -359,20 +424,9 @@ async def upload_resume(
     with open(resume_path, "wb") as f:
         f.write(file_bytes)
 
-    # Upload to Cloudinary if configured for persistent storage in production
+    # Upload to Cloudinary asynchronously in background so client response is instant
     if os.getenv("CLOUDINARY_CLOUD_NAME"):
-        try:
-            import cloudinary.uploader
-            cloudinary_resp = cloudinary.uploader.upload(
-                resume_path,
-                resource_type="auto",
-                public_id=resume_filename.split('.')[0]
-            )
-            if cloudinary_resp and "secure_url" in cloudinary_resp:
-                resume_path = cloudinary_resp["secure_url"]
-                print(f"INFO: Uploaded resume to Cloudinary: {resume_path}")
-        except Exception as e:
-            print(f"Cloudinary resume upload error: {e}")
+        background_tasks.add_task(upload_resume_bg, resume_path, resume_filename.split('.')[0], safe_username)
 
     # Reset file pointer for parser (use BytesIO)
     from io import BytesIO
@@ -393,7 +447,7 @@ async def upload_resume(
         if not source:
             source = detected_source
 
-    questions = retrieve_semantic_questions(skills, experience, domain, source, username, db)
+    questions = generate_questions(skills, experience, domain, source, username, db)
 
     # Update user's resume_path and experience in DB if user is logged in
     if username:
@@ -565,7 +619,7 @@ async def get_all_records(db: Session = Depends(get_db), current_user: User = De
         object_name = f"{safe_username}_full_interview.webm"
         if cloudinary_utils:
             public_id = f"{safe_username}_full_interview"
-            video_url = cloudinary_utils.cloudinary_url(public_id, resource_type="video", secure=True)[0]
+            video_url = cloudinary_utils.cloudinary_url(public_id, resource_type="video", secure=True, format="webm")[0]
         else:
             video_url = f"/static/videos/{object_name}" if os.path.exists(f"static/videos/{object_name}") else None
             
@@ -678,6 +732,26 @@ async def get_result(db: Session = Depends(get_db), current_user: User = Depends
         "age": user.age,
         "experience": user.experience
     }
+
+@app.get("/api/download_pdf_report")
+async def download_pdf_report(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.username.lower() != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized action")
+    try:
+        from generate_final_50_page_report import create_report
+        create_report()
+        pdf_path = "whole_project_report.pdf"
+        if os.path.exists(pdf_path):
+            return FileResponse(
+                pdf_path,
+                media_type="application/pdf",
+                filename="AI_Interview_System_Project_Report.pdf",
+                headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+            )
+        else:
+            raise HTTPException(status_code=500, detail="PDF report file was not generated.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(e)}")
 
 class AccessRequest(BaseModel):
     username: str
@@ -934,4 +1008,4 @@ async def api_transcribe(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8005, reload=True)

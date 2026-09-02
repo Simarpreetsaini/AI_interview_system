@@ -502,16 +502,16 @@ input:focus {
     }
 }
 
-/* Results View Dynamic Grid Expansion */
+/* Results View Stable Layout */
 .portal-grid.results-active {
-    grid-template-columns: 1fr;
-    max-width: 800px;
+    /* Keep grid layout stable */
+    max-width: 1200px;
 }
 .portal-grid.results-active .portal-branding {
-    display: none !important;
+    display: flex !important;
 }
 .portal-grid.results-active .portal-form-container .container {
-    max-width: 800px;
+    max-width: 580px;
 }
 
 /* Responsive Layouts and Padding Overrides */
